@@ -1,0 +1,2 @@
+# Console version currently uses only Python standard library.
+# If you later build GUI, add pygame here.
