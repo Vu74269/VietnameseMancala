@@ -1,19 +1,14 @@
-"""Điểm vào chính của game Ô ăn quan bản console."""
+"""Điểm vào chính của game Ô ăn quan (pygame)."""
 
 from __future__ import annotations
 
-from game.engine import GameEngine
-from game.ui.console_ui import ConsoleUI
+from game.ui.pygame_runner import run_pygame_game
 
 
 def main() -> None:
-	# Chỉ khởi động UI console và engine, chưa có GUI.
-	print("=== O An Quan (Console) ===")
-	mode = ConsoleUI.choose_mode()
-	engine = GameEngine(mode=mode)
-	engine.play()
+	print("=== O An Quan ===")
+	run_pygame_game("pvp")
 
 
 if __name__ == "__main__":
 	main()
-

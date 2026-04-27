@@ -11,6 +11,16 @@ from game.board import Board
 
 class ConsoleUI:
 	@staticmethod
+	def choose_ui_backend() -> str:
+		while True:
+			choice = input("Choose UI: 1) Console  2) Pygame : ").strip()
+			if choice == "1":
+				return "console"
+			if choice == "2":
+				return "pygame"
+			print("Invalid choice. Enter 1 or 2.")
+
+	@staticmethod
 	def choose_mode() -> str:
 		# Chọn chế độ chơi trước khi khởi tạo engine.
 		while True:

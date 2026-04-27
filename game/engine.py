@@ -1,21 +1,46 @@
-"""Engine điều phối người chơi, luật, và giao diện console."""
+"""Engine lõi điều phối trạng thái game, độc lập với UI."""
 
 from __future__ import annotations
 
-import random
-from typing import List
+from dataclasses import dataclass
+from typing import Dict, List, Optional
 
 from config import PLAYER_NAMES
 from game.board import Board
+from game import rules
 from game.players.base_player import BasePlayer
 from game.players.bot_player import BotPlayer
 from game.players.human_player import HumanPlayer
-from game import rules
-from game.ui.console_ui import ConsoleUI
+
+
+@dataclass
+class TurnContext:
+	player_id: int
+	player_name: str
+	valid_moves: List[int]
+	side_was_empty: bool
+	borrowed: int
+
+
+@dataclass
+class MoveResult:
+	player_id: int
+	player_name: str
+	pit: int
+	direction: int
+	captured: int
+
+
+@dataclass
+class FinalResult:
+	scores: Dict[int, int]
+	captured_by_player: List[int]
+	borrowed_by_player: List[int]
+	names: List[str]
 
 
 class GameEngine:
-	def __init__(self, mode: str) -> None:
+	def __init__(self, mode: str, players: Optional[List[BasePlayer]] = None) -> None:
 		if mode not in ("pvp", "pvb"):
 			raise ValueError("Mode must be 'pvp' or 'pvb'.")
 
@@ -24,17 +49,100 @@ class GameEngine:
 		self.board = Board.create_initial()
 		self.captured_by_player: List[int] = [0, 0]
 		self.borrowed_by_player: List[int] = [0, 0]
-		self.players: List[BasePlayer] = self._create_players()
+		self.players: List[BasePlayer] = players or self._create_default_players()
+		if len(self.players) != 2:
+			raise ValueError("GameEngine requires exactly 2 players.")
 		self.current_player = 0
+		self._finished = False
+		self._final_result: Optional[FinalResult] = None
 
-	def _create_players(self) -> List[BasePlayer]:
+	def _create_default_players(self) -> List[BasePlayer]:
 		if self.mode == "pvp":
-			p1_name = ConsoleUI.ask_player_name(PLAYER_NAMES[0])
-			p2_name = ConsoleUI.ask_player_name(PLAYER_NAMES[1])
-			return [HumanPlayer(0, p1_name), HumanPlayer(1, p2_name)]
+			return [
+				HumanPlayer(0, PLAYER_NAMES[0]),
+				HumanPlayer(1, PLAYER_NAMES[1]),
+			]
 
-		p1_name = ConsoleUI.ask_player_name(PLAYER_NAMES[0])
-		return [HumanPlayer(0, p1_name), BotPlayer(1, "Bot")]
+		return [HumanPlayer(0, PLAYER_NAMES[0]), BotPlayer(1, "Bot")]
+
+	def start(self, first_player: int = 0) -> None:
+		if first_player not in (0, 1):
+			raise ValueError("first_player must be 0 or 1.")
+		self.current_player = first_player
+
+	def get_active_player(self) -> BasePlayer:
+		return self.players[self.current_player]
+
+	def get_player_names(self) -> List[str]:
+		return [self.players[0].name, self.players[1].name]
+
+	def set_player_name(self, player_id: int, name: str) -> None:
+		if player_id not in (0, 1):
+			raise ValueError("player_id must be 0 or 1.")
+		self.players[player_id].name = name
+
+	def is_game_over(self) -> bool:
+		return rules.check_game_over(self.board)
+
+	def prepare_turn(self) -> TurnContext:
+		if self._finished:
+			raise RuntimeError("Game has already finished.")
+
+		active = self.get_active_player()
+		side_was_empty = self.board.is_side_empty(self.current_player)
+
+		borrowed = rules.ensure_side_has_seeds(
+			self.board,
+			self.current_player,
+			self.captured_by_player,
+			self.borrowed_by_player,
+		)
+
+		valid_moves = self.board.get_valid_moves(self.current_player)
+		return TurnContext(
+			player_id=self.current_player,
+			player_name=active.name,
+			valid_moves=valid_moves,
+			side_was_empty=side_was_empty,
+			borrowed=borrowed,
+		)
+
+	def execute_move(self, pit: int, direction: int) -> MoveResult:
+		if self._finished:
+			raise RuntimeError("Game has already finished.")
+
+		active = self.get_active_player()
+		captured = rules.execute_turn(self.board, self.current_player, pit, direction)
+		self.captured_by_player[self.current_player] += captured
+
+		return MoveResult(
+			player_id=self.current_player,
+			player_name=active.name,
+			pit=pit,
+			direction=direction,
+			captured=captured,
+		)
+
+	def end_turn(self) -> None:
+		self.current_player = 1 - self.current_player
+
+	def skip_turn(self) -> None:
+		self.end_turn()
+
+	def finalize_game(self) -> FinalResult:
+		if self._final_result is not None:
+			return self._final_result
+
+		rules.collect_remaining_side_seeds(self.board, self.captured_by_player)
+		scores = rules.calculate_score(self.captured_by_player, self.borrowed_by_player)
+		self._final_result = FinalResult(
+			scores=scores,
+			captured_by_player=self.captured_by_player.copy(),
+			borrowed_by_player=self.borrowed_by_player.copy(),
+			names=self.get_player_names(),
+		)
+		self._finished = True
+		return self._final_result
 
 	@staticmethod
 	def _rps_winner(pick_0: str, pick_1: str) -> int:
@@ -46,88 +154,4 @@ class GameEngine:
 			("paper", "rock"),
 		}
 		return 0 if (pick_0, pick_1) in win_pairs else 1
-
-	def choose_first_player(self) -> int:
-		while True:
-			# Oẳn tù xì để xác định người đi trước.
-			p0_pick = ConsoleUI.ask_rps(self.players[0].name)
-
-			if isinstance(self.players[1], BotPlayer):
-				p1_pick = random.choice(["rock", "paper", "scissors"])
-			else:
-				p1_pick = ConsoleUI.ask_rps(self.players[1].name)
-
-			ConsoleUI.show_rps_result(
-				self.players[0].name,
-				p0_pick,
-				self.players[1].name,
-				p1_pick,
-			)
-
-			winner = self._rps_winner(p0_pick, p1_pick)
-			if winner == -1:
-				print("RPS tie, replay.")
-				continue
-
-			return winner
-
-	def play(self) -> None:
-		# Chọn người đi trước bằng RPS rồi bắt đầu vòng lặp chính.
-		self.current_player = self.choose_first_player()
-		print(f"{self.players[self.current_player].name} goes first.")
-		input("Press Enter to start the game...")
-
-		while not rules.check_game_over(self.board):
-			active = self.players[self.current_player]
-			# Kiểm tra trước khi rải: nếu cả 5 ô bên mình trống thì phải bơm lại quân.
-			was_empty_side = self.board.is_side_empty(self.current_player)
-
-			borrowed = rules.ensure_side_has_seeds(
-				self.board,
-				self.current_player,
-				self.captured_by_player,
-				self.borrowed_by_player,
-			)
-
-			ConsoleUI.render_board(
-				self.board,
-				active.name,
-				self.captured_by_player,
-				self.borrowed_by_player,
-			)
-
-			if self.board.is_side_empty(self.current_player):
-				# Chỉ là chốt an toàn nếu strategy bên ngoài trả về trạng thái không hợp lệ.
-				print(f"{active.name} has no valid pits this turn. Turn skipped.")
-				self.current_player = 1 - self.current_player
-				continue
-
-			if was_empty_side:
-				ConsoleUI.show_resupply(active.name, borrowed)
-
-			valid_moves = self.board.get_valid_moves(self.current_player)
-			pit, direction = active.choose_move(self.board.get_state(), valid_moves)
-			captured = rules.execute_turn(self.board, self.current_player, pit, direction)
-			self.captured_by_player[self.current_player] += captured
-
-			ConsoleUI.show_move_summary(active.name, pit, direction, captured)
-			input("Press Enter for next turn...")
-
-			self.current_player = 1 - self.current_player
-
-		rules.collect_remaining_side_seeds(self.board, self.captured_by_player)
-		scores = rules.calculate_score(self.captured_by_player, self.borrowed_by_player)
-		names = [self.players[0].name, self.players[1].name]
-		ConsoleUI.render_board(
-			self.board,
-			"Game End",
-			self.captured_by_player,
-			self.borrowed_by_player,
-		)
-		ConsoleUI.show_final(
-			scores,
-			self.captured_by_player,
-			self.borrowed_by_player,
-			names,
-		)
 

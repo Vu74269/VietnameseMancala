@@ -1,6 +1,6 @@
-# O An Quan Game (Console)
+# O An Quan Game (Console + Pygame GUI)
 
-Project Python cho game O An Quan, tach ro phan board/rules/engine/player/ui de de mo rong AI va GUI sau nay.
+Project Python cho game O An Quan, tach ro phan board/rules/engine/player/ui de de mo rong AI va GUI.
 
 ## 1. Cai dat
 
@@ -27,6 +27,7 @@ python main.py
 ```
 
 Sau khi chay:
+1. Chon UI: `1` (Console) hoac `2` (Pygame).
 1. Chon mode: `1` (PvP) hoac `2` (PvB).
 2. Nhap ten nguoi choi.
 3. Oan tu ti (rock/paper/scissors) de quyet dinh nguoi di truoc.
@@ -46,9 +47,60 @@ Quy uoc huong hien tai:
 - `cw`  = giam chi so (11 -> 10 -> 9 -> ... -> 0 -> 11)
 - `ccw` = tang chi so (11 -> 0 -> 1 -> ... -> 10 -> 11)
 
-## 3. Cau truc du lieu
+### Dieu khien trong Pygame
 
-### 3.1 Ban co va chi so o
+- Click 1 o hop le de chon nuoc di.
+- Click nut `CW` hoac `CCW` (hoac bam phim `C`/`X`) de danh.
+- Bam `Esc` de bo chon o.
+
+## 3. Cai dat cho VS Code
+
+Ban khong bat buoc cai extension nao de chay GUI.
+
+Can thiet:
+- Python 3.10+
+- Da cai package `pygame` trong virtual env
+
+Khuyen nghi trong VS Code:
+- Python (ms-python.python)
+- Pylance (ms-python.vscode-pylance)
+
+Neu gap loi khi mo cua so pygame:
+- Chay tu terminal da active `.venv`.
+- Dung python 64-bit.
+- Thu cap nhat driver GPU neu may qua cu.
+
+## 4. Tai nguyen anh PNG (optional)
+
+Du an ho tro fallback: neu khong co anh thi van ve bang shape.
+
+Dat file vao thu muc: `assets/images/`
+
+Ten file khuyen nghi:
+- `board.png`
+- `pit_small.png`
+- `pit_quan.png`
+- `player_human.png`
+- `player_bot.png`
+- `rps_rock.png`
+- `rps_paper.png`
+- `rps_scissors.png`
+
+Kich thuoc khuyen nghi (px x px):
+- Board background: `2200 x 1040` (tile/scale xuong 1100 x 520)
+- O nho: `160 x 160`
+- O quan: `256 x 256`
+- Avatar nguoi/AI: `512 x 512`
+- Icon RPS: `256 x 256`
+
+Luu y:
+- Nen dung PNG co alpha trong suot.
+- Giu ti le 1:1 cho sprite tron (pit, avatar, RPS).
+- Xuat tai nguyen gap doi kich thuoc hien thi de hinh sac net hon.
+
+## 5. Cau truc du lieu
+
+### 5.1 Ban co va chi so o
 
 - Tong 12 o, danh so vong tron: `0..11`
 - O quan trai: `0`
@@ -56,7 +108,7 @@ Quy uoc huong hien tai:
 - 5 o nguoi choi 0: `[1, 2, 3, 4, 5]`
 - 5 o nguoi choi 1: `[11, 10, 9, 8, 7]`
 
-### 3.2 Du lieu trong `Board`
+### 5.2 Du lieu trong `Board`
 
 - `seeds: List[int]`
 	- Mang 12 phan tu, moi phan tu la so quan dan trong tung o.
@@ -64,7 +116,7 @@ Quy uoc huong hien tai:
 	- `quan_alive[0]`: quan o o 0 con song hay da bi an.
 	- `quan_alive[1]`: quan o o 6 con song hay da bi an.
 
-### 3.3 Du lieu trang thai trong `GameEngine`
+### 5.3 Du lieu trang thai trong `GameEngine`
 
 - `self.board: Board`
 - `self.captured_by_player: List[int]`
@@ -76,23 +128,23 @@ Quy uoc huong hien tai:
 - `self.current_player: int`
 	- `0` hoac `1`.
 
-### 3.4 Du lieu truyen qua AI/player
+### 5.4 Du lieu truyen qua AI/player
 
 - `board_state: Dict[str, object]` (tu `Board.get_state()`)
 	- `seeds`, `quan_alive`, `player_0_side`, `player_1_side`, `quan_indices`.
 - `valid_moves: List[int]`
 	- Danh sach cac o hop le co the chon o luot hien tai.
 
-## 4. Chi tiet tat ca ham va method
+## 6. Chi tiet tat ca ham va method
 
-### 4.1 `main.py`
+### 6.1 `main.py`
 
 - `main() -> None`
 	- In tieu de game.
-	- Goi UI de chon mode.
-	- Tao `GameEngine` va chay `play()`.
+	- Chon backend UI (`console` hoac `pygame`).
+	- Chon mode (`pvp`/`pvb`) roi goi runner tuong ung.
 
-### 4.2 `game/board.py` - `class Board`
+### 6.2 `game/board.py` - `class Board`
 
 - `Board.create_initial() -> Board`
 	- Khoi tao ban co mac dinh: moi o dan 5 quan, o quan 0 quan, 2 quan lon con song.
@@ -121,7 +173,7 @@ Quy uoc huong hien tai:
 	- Lay het quan trong o va dat o do ve 0.
 	- Tra ve so quan vua lay.
 
-### 4.3 `game/rules.py`
+### 6.3 `game/rules.py`
 
 - `is_valid_move(board, player_id, pit_index) -> bool`
 	- Nuoc di hop le khi o duoc chon thuoc ben player va co quan.
@@ -150,31 +202,33 @@ Quy uoc huong hien tai:
 - `calculate_score(captured_by_player, borrowed_by_player) -> Dict[int, int]`
 	- Tinh diem cuoi co tru no vay va cong phan doi thu phai tra lai.
 
-### 4.4 `game/engine.py` - `class GameEngine`
+### 6.4 `game/engine.py` - `class GameEngine`
 
 - `__init__(mode: str) -> None`
-	- Khoi tao board, diem, nguoi choi, luot hien tai.
+	- Khoi tao board, diem, nguoi choi, luot hien tai (headless).
 	- `mode` chi nhan `pvp` hoac `pvb`.
-- `_create_players() -> List[BasePlayer]`
+	- Co the truyen danh sach player tuy chinh.
+- `_create_default_players() -> List[BasePlayer]`
 	- Tao danh sach player theo mode:
 	- `pvp`: 2 nguoi.
 	- `pvb`: 1 nguoi + 1 bot.
+- `start(first_player: int = 0) -> None`
+	- Dat nguoi di truoc.
+- `prepare_turn() -> TurnContext`
+	- Xu ly refill/vay neu can va tra ve trang thai luot hien tai.
+- `execute_move(pit, direction) -> MoveResult`
+	- Thuc thi nuoc di va cap nhat so quan an.
+- `end_turn() -> None`
+	- Chuyen luot cho nguoi choi con lai.
+- `skip_turn() -> None`
+	- Bo luot an toan khi khong co nuoc hop le.
+- `finalize_game() -> FinalResult`
+	- Thu quan cuoi game va tinh diem chung cuoc.
 - `_rps_winner(pick_0: str, pick_1: str) -> int`
 	- Tinh ket qua oẳn tù xì.
 	- Tra `0`/`1` neu co nguoi thang, `-1` neu hoa.
-- `choose_first_player() -> int`
-	- Lap oẳn tù xì den khi het hoa.
-	- Tra ve id nguoi di truoc.
-- `play() -> None`
-	- Vong lap game chinh:
-	- refill/vay neu het quan ben minh,
-	- render,
-	- lay nuoc di,
-	- thuc thi luot,
-	- doi luot,
-	- ket thuc va in ket qua.
 
-### 4.5 `game/players/base_player.py` - `class BasePlayer`
+### 6.5 `game/players/base_player.py` - `class BasePlayer`
 
 - `__init__(player_id: int, name: str) -> None`
 	- Luu id va ten nguoi choi.
@@ -182,21 +236,21 @@ Quy uoc huong hien tai:
 	- Interface bat buoc cho tat ca player.
 	- Tra ve `(pit_index, direction)`.
 
-### 4.6 `game/players/human_player.py` - `class HumanPlayer`
+### 6.6 `game/players/human_player.py` - `class HumanPlayer`
 
 - `choose_move(board_state, valid_moves) -> Tuple[int, int]`
 	- Doc input tu terminal dang `<pit> <cw|ccw>`.
 	- Validate pit va huong.
 	- Lap lai neu sai dinh dang/khong hop le.
 
-### 4.7 `game/players/bot_player.py` - `class BotPlayer`
+### 6.7 `game/players/bot_player.py` - `class BotPlayer`
 
 - `__init__(player_id, name, strategy=None) -> None`
 	- Nhan strategy tuy chon, neu khong co thi dung `RandomStrategy`.
 - `choose_move(board_state, valid_moves) -> Tuple[int, int]`
 	- Uy quyen cho `self.strategy.get_best_move(...)`.
 
-### 4.8 `game/ai/base_strategy.py`
+### 6.8 `game/ai/base_strategy.py`
 
 - `class Strategy`
 	- Interface AI:
@@ -206,7 +260,7 @@ Quy uoc huong hien tai:
 - `RandomStrategy.get_best_move(...) -> Tuple[int, int]`
 	- Chon ngau nhien 1 o hop le va 1 huong hop le.
 
-### 4.9 `game/ui/console_ui.py` - `class ConsoleUI`
+### 6.9 `game/ui/console_ui.py` - `class ConsoleUI`
 
 - `choose_mode() -> str`
 	- Chon `pvp`/`pvb` tu menu 1/2.
@@ -226,7 +280,17 @@ Quy uoc huong hien tai:
 - `show_final(scores, captured_by_player, borrowed_by_player, names) -> None`
 	- In ket qua cuoi va nguoi thang.
 
-### 4.10 `utils/helpers.py`
+### 6.10 `game/ui/pygame_ui/*`
+
+- `app.py`
+	- Quan ly vong lap pygame (event/update/draw).
+- `scenes/game_scene.py`
+	- Render ban co, o, score HUD.
+	- Xu ly click chuot/chon huong/cap nhat turn.
+- `assets.py`
+	- Tai sprite PNG tu `assets/images` (co fallback neu thieu file).
+
+### 6.11 `utils/helpers.py`
 
 - `clear_screen() -> None`
 	- Ham xoa terminal.
@@ -234,7 +298,7 @@ Quy uoc huong hien tai:
 - `direction_label(direction: int) -> str`
 	- Chuyen huong so sang text `cw`/`ccw`.
 
-### 4.11 `tests/test_rules.py` - `class RulesTestCase`
+### 6.12 `tests/test_rules.py` - `class RulesTestCase`
 
 - `test_initial_board_setup()`
 	- Test trang thai board ban dau.
@@ -245,7 +309,7 @@ Quy uoc huong hien tai:
 - `test_refill_and_borrow_when_side_empty()`
 	- Test logic refill + vay khi het quan ben minh.
 
-## 5. Luat da duoc map vao code
+## 7. Luat da duoc map vao code
 
 - Tai nguyen ban dau:
 	- 12 o: 2 o quan + 10 o quan nho.
@@ -266,7 +330,7 @@ Quy uoc huong hien tai:
 	- Quan con lai ben nao thuoc ve ben do.
 	- Tinh diem co tru no vay.
 
-## 6. Mo rong AI
+## 8. Mo rong AI
 
 `BotPlayer` dang goi strategy qua `Strategy.get_best_move(...)`.
 
@@ -275,7 +339,7 @@ Team AI co the:
 2. Implement class ke thua `Strategy`.
 3. Truyen strategy do vao `BotPlayer` trong `game/engine.py`.
 
-## 7. Chay test
+## 9. Chay test
 
 ```powershell
 python -m unittest discover -s tests -p "test_*.py"
