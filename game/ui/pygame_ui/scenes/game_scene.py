@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from typing import Dict, Optional, Tuple
 
 import pygame
@@ -34,17 +35,17 @@ class GameScene(BaseScene):
 
 		self.pit_centers = self._build_pit_centers()
 		# Circular buttons for CW/CCW arrows
-		self.cw_button = pygame.Rect(460, 640, 60, 60)
-		self.ccw_button = pygame.Rect(760, 640, 60, 60)
+		self.cw_button = pygame.Rect(930, 636, 68, 68)
+		self.ccw_button = pygame.Rect(1016, 636, 68, 68)
 
 		# Back button
-		self.btn_back = pygame.Rect(30, 650, 120, 44)
+		self.btn_back = pygame.Rect(28, 646, 120, 46)
 
 		self.turn_context: Optional[TurnContext] = None
 		self.final_result: Optional[FinalResult] = None
 		self.selected_pit: Optional[int] = None
 		self.last_rps: Tuple[str, str] = last_rps or ("rock", "paper")
-		self.message = "Click an available pit, then click CW or CCW."
+		self.message = "Chon o hop le, sau do bam nut mui ten de rai quan."
 
 		# animation / display overlay state
 		self.anim_active = False
@@ -274,9 +275,9 @@ class GameScene(BaseScene):
 			return
 
 		if self.cw_button.collidepoint(mouse_pos):
-			self._try_apply_human_move(CLOCKWISE)
-		elif self.ccw_button.collidepoint(mouse_pos):
 			self._try_apply_human_move(COUNTER_CLOCKWISE)
+		elif self.ccw_button.collidepoint(mouse_pos):
+			self._try_apply_human_move(CLOCKWISE)
 
 	def update(self, dt: float) -> None:
 		# animation advance
@@ -355,11 +356,13 @@ class GameScene(BaseScene):
 		# use display seeds when animating, otherwise real board
 		seed_count = self.board_display_seeds[idx] if self.anim_active else self.engine.board.seeds[idx]
 		# only show seed count (no pit index)
-		text = self.body_font.render(str(seed_count), True, settings.TEXT_PRIMARY)
+		text = self.body_font.render(str(seed_count), True, settings.WHITE)
 		text_rect = text.get_rect(center=center)
-		# draw subtle shadow for contrast
-		shadow = self.body_font.render(str(seed_count), True, (10, 10, 10))
-		surface.blit(shadow, shadow.get_rect(center=(text_rect.centerx + 2, text_rect.centery + 2)))
+		shadow = self.body_font.render(str(seed_count), True, (12, 12, 12))
+		surface.blit(
+			shadow,
+			shadow.get_rect(center=(text_rect.centerx + 2, text_rect.centery + 2)),
+		)
 		surface.blit(text, text_rect)
 
 		if is_quan_pit and self.engine.board.has_quan(idx):
@@ -367,23 +370,40 @@ class GameScene(BaseScene):
 			marker_rect = marker.get_rect(center=(center[0], center[1] - radius + 18))
 			surface.blit(marker, marker_rect)
 
-	def _draw_arrow_icon(self, surface: pygame.Surface, center: Tuple[int, int], clockwise: bool, size: int = 28) -> None:
-		"""Draw a circular arrow icon (clockwise or counter-clockwise)."""
-		# Draw circle background
-		pygame.draw.circle(surface, (34, 139, 34), center, size)  # green background
-		pygame.draw.circle(surface, (255, 255, 255), center, size, 2)  # white border
-		
-		# Draw arrow
-		dx = 1 if clockwise else -1
-		# Arrow points
-		arrow_tip = (center[0] + dx * 12, center[1] - 8)
-		arrow_left = (center[0] + dx * 6, center[1])
-		arrow_right = (center[0] + dx * 6, center[1] + 8)
-		arrow_base = (center[0] - dx * 8, center[1])
-		
-		# Draw filled arrow shape
-		points = [arrow_tip, arrow_left, arrow_base, arrow_right]
-		pygame.draw.polygon(surface, (255, 255, 255), points)
+	def _draw_circular_arrow_icon(
+		self,
+		surface: pygame.Surface,
+		center: Tuple[int, int],
+		clockwise: bool,
+		radius: int = 17,
+	) -> None:
+		"""Draw a true circular arrow by drawing an arc and an arrow head."""
+		if clockwise:
+			angles = list(range(230, -40, -18))
+		else:
+			angles = list(range(-50, 230, 18))
+
+		points = []
+		for ang in angles:
+			rad = math.radians(ang)
+			x = int(center[0] + radius * math.cos(rad))
+			y = int(center[1] + radius * math.sin(rad))
+			points.append((x, y))
+
+		if len(points) >= 2:
+			pygame.draw.lines(surface, settings.WHITE, False, points, 4)
+			tip = points[-1]
+			prev = points[-2]
+			theta = math.atan2(tip[1] - prev[1], tip[0] - prev[0])
+			left = (
+				int(tip[0] - 9 * math.cos(theta - 0.6)),
+				int(tip[1] - 9 * math.sin(theta - 0.6)),
+			)
+			right = (
+				int(tip[0] - 9 * math.cos(theta + 0.6)),
+				int(tip[1] - 9 * math.sin(theta + 0.6)),
+			)
+			pygame.draw.polygon(surface, settings.WHITE, [tip, left, right])
 
 	def _draw_buttons(self, surface: pygame.Surface) -> None:
 		mouse_pos = pygame.mouse.get_pos()
@@ -391,24 +411,25 @@ class GameScene(BaseScene):
 		# Draw CW button (clockwise arrow)
 		cw_center = (self.cw_button.centerx, self.cw_button.centery)
 		is_cw_hover = self.cw_button.collidepoint(mouse_pos)
-		bg_cw = (46, 160, 46) if is_cw_hover else (34, 139, 34)  # brighter green on hover
-		pygame.draw.circle(surface, (20, 20, 20), (cw_center[0] + 3, cw_center[1] + 3), 32)  # shadow
-		pygame.draw.circle(surface, bg_cw, cw_center, 30)
-		pygame.draw.circle(surface, (255, 255, 255), cw_center, 30, 3)
-		self._draw_arrow_icon(surface, cw_center, clockwise=True)
+		bg_cw = (52, 168, 84) if is_cw_hover else (39, 148, 72)
+		pygame.draw.circle(surface, (18, 18, 18), (cw_center[0] + 4, cw_center[1] + 4), 34)
+		pygame.draw.circle(surface, bg_cw, cw_center, 32)
+		pygame.draw.circle(surface, (95, 205, 120), (cw_center[0], cw_center[1] - 8), 18)
+		pygame.draw.circle(surface, settings.WHITE, cw_center, 32, 2)
+		self._draw_circular_arrow_icon(surface, cw_center, clockwise=True)
 		
 		# Draw CCW button (counter-clockwise arrow)
 		ccw_center = (self.ccw_button.centerx, self.ccw_button.centery)
 		is_ccw_hover = self.ccw_button.collidepoint(mouse_pos)
-		bg_ccw = (46, 160, 46) if is_ccw_hover else (34, 139, 34)
-		pygame.draw.circle(surface, (20, 20, 20), (ccw_center[0] + 3, ccw_center[1] + 3), 32)  # shadow
-		pygame.draw.circle(surface, bg_ccw, ccw_center, 30)
-		pygame.draw.circle(surface, (255, 255, 255), ccw_center, 30, 3)
-		self._draw_arrow_icon(surface, ccw_center, clockwise=False)
+		bg_ccw = (52, 168, 84) if is_ccw_hover else (39, 148, 72)
+		pygame.draw.circle(surface, (18, 18, 18), (ccw_center[0] + 4, ccw_center[1] + 4), 34)
+		pygame.draw.circle(surface, bg_ccw, ccw_center, 32)
+		pygame.draw.circle(surface, (95, 205, 120), (ccw_center[0], ccw_center[1] - 8), 18)
+		pygame.draw.circle(surface, settings.WHITE, ccw_center, 32, 2)
+		self._draw_circular_arrow_icon(surface, ccw_center, clockwise=False)
 
 		# draw back button
-		is_back_hover = self.btn_back.collidepoint(mouse_pos)
-		back_bg = (140, 90, 60)
+		back_bg = (154, 98, 63) if self.btn_back.collidepoint(mouse_pos) else (140, 90, 60)
 		shadow = self.btn_back.move(4, 4)
 		pygame.draw.rect(surface, (18, 18, 18), shadow, border_radius=12)
 		pygame.draw.rect(surface, back_bg, self.btn_back, border_radius=12)
@@ -417,11 +438,14 @@ class GameScene(BaseScene):
 		surface.blit(back_text, back_text.get_rect(center=self.btn_back.center))
 
 	def _draw_hud(self, surface: pygame.Surface) -> None:
-		# title with shadow for contrast
-		title_surf = self.title_font.render("O AN QUAN", True, settings.TEXT_PRIMARY)
-		shadow = self.title_font.render("O AN QUAN", True, (12, 12, 12))
-		surface.blit(shadow, (32, 26))
-		surface.blit(title_surf, (30, 24))
+		# Top information panel to avoid text/background clash
+		top_panel = pygame.Surface((790, 116), pygame.SRCALPHA)
+		top_panel.fill((20, 18, 16, 156))
+		surface.blit(top_panel, (20, 16))
+		pygame.draw.rect(surface, (248, 236, 208), pygame.Rect(20, 16, 790, 116), 1, border_radius=10)
+
+		title_surf = self.title_font.render("O AN QUAN", True, (255, 244, 224))
+		surface.blit(title_surf, (36, 22))
 
 		names = self.engine.get_player_names()
 		capt = self.engine.captured_by_player
@@ -431,43 +455,32 @@ class GameScene(BaseScene):
 		player_line = self.body_font.render(
 			f"P1: {names[0]}  |  P2: {names[1]}  |  Turn: {active_name}",
 			True,
-			settings.TEXT_PRIMARY,
+			(252, 244, 228),
 		)
-		# shadow
-		pl_shadow = self.body_font.render(
-			f"P1: {names[0]}  |  P2: {names[1]}  |  Turn: {active_name}",
-			True,
-			(8, 8, 8),
-		)
-		surface.blit(pl_shadow, (32, 84))
-		surface.blit(player_line, (30, 82))
+		surface.blit(player_line, (36, 74))
 
-		score_line = self.body_font.render(
+		score_line = self.small_font.render(
 			f"Captured: {capt[0]} - {capt[1]}    Borrowed: {borrow[0]} - {borrow[1]}",
 			True,
-			settings.TEXT_MUTED,
+			(245, 231, 205),
 		)
-		# shadow for score
-		sc_shadow = self.body_font.render(
-			f"Captured: {capt[0]} - {capt[1]}    Borrowed: {borrow[0]} - {borrow[1]}",
-			True,
-			(8, 8, 8),
-		)
-		surface.blit(sc_shadow, (32, 114))
-		surface.blit(score_line, (30, 112))
+		surface.blit(score_line, (36, 102))
+
+		# Bottom status panel kept clear from buttons
+		bottom_panel = pygame.Surface((740, 72), pygame.SRCALPHA)
+		bottom_panel.fill((20, 18, 16, 156))
+		surface.blit(bottom_panel, (164, 632))
+		pygame.draw.rect(surface, (248, 236, 208), pygame.Rect(164, 632, 740, 72), 1, border_radius=10)
+
+		message = self.small_font.render(self.message[:92], True, (255, 246, 230))
+		surface.blit(message, (180, 648))
 
 		hint = self.small_font.render(
-			"Controls: click pit + click CW/CCW (or press C / X). Esc to clear selection.",
+			"Esc: bo chon o | Back: ve menu | Mui ten: rai theo chieu",
 			True,
-			settings.TEXT_MUTED,
+			(235, 222, 194),
 		)
-		surface.blit(hint, (30, 685))
-
-		message = self.small_font.render(self.message, True, settings.TEXT_PRIMARY)
-		# message shadow
-		msg_shadow = self.small_font.render(self.message, True, (8, 8, 8))
-		surface.blit(msg_shadow, (32, 652))
-		surface.blit(message, (30, 650))
+		surface.blit(hint, (180, 674))
 
 		# avatar mapping: prefer provided player images
 		avatar_0_name = "player_1"
@@ -478,8 +491,8 @@ class GameScene(BaseScene):
 		self._draw_avatar(surface, avatar_0_name, (1080, 58))
 		self._draw_avatar(surface, avatar_1_name, (1170, 58))
 
-		name_0 = self.small_font.render(names[0], True, settings.TEXT_PRIMARY)
-		name_1 = self.small_font.render(names[1], True, settings.TEXT_PRIMARY)
+		name_0 = self.small_font.render(names[0], True, (255, 246, 230))
+		name_1 = self.small_font.render(names[1], True, (255, 246, 230))
 		surface.blit(name_0, name_0.get_rect(center=(1080, 102)))
 		surface.blit(name_1, name_1.get_rect(center=(1170, 102)))
 

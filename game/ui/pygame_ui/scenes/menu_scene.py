@@ -113,11 +113,14 @@ class MenuScene(BaseScene):
 		surface.blit(title, title.get_rect(center=(settings.WINDOW_WIDTH // 2, 140)))
 
 	def _draw_menu(self, surface: pygame.Surface) -> None:
-		# Title with shadow for contrast
-		shadow = self.title_font.render("O AN QUAN", True, (15, 15, 15))
-		surface.blit(shadow, (32, 142))
-		title = self.title_font.render("O AN QUAN", True, settings.TEXT_PRIMARY)
-		surface.blit(title, (30, 140))
+		# Bright centered title with soft glow so it does not sink into the background.
+		title_center = (settings.WINDOW_WIDTH // 2, 180)
+		glow = self.title_font.render("O ĂN QUAN", True, (55, 40, 20))
+		for dx, dy in [(-3, 0), (3, 0), (0, -3), (0, 3), (-2, -2), (2, 2)]:
+			surface.blit(glow, glow.get_rect(center=(title_center[0] + dx, title_center[1] + dy)))
+
+		title = self.title_font.render("O ĂN QUAN", True, (255, 248, 232))
+		surface.blit(title, title.get_rect(center=title_center))
 
 		self.btn_pvp.draw(surface)
 		self.btn_pvb.draw(surface)
