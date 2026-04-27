@@ -26,33 +26,6 @@ pip install -r requirements.txt
 python main.py
 ```
 
-Sau khi chay:
-1. Chon UI: `1` (Console) hoac `2` (Pygame).
-1. Chon mode: `1` (PvP) hoac `2` (PvB).
-2. Nhap ten nguoi choi.
-3. Oan tu ti (rock/paper/scissors) de quyet dinh nguoi di truoc.
-4. Moi luot nhap theo dinh dang:
-
-```text
-<pit_index> <cw|ccw>
-```
-
-Vi du:
-
-```text
-11 cw
-```
-
-Quy uoc huong hien tai:
-- `cw`  = giam chi so (11 -> 10 -> 9 -> ... -> 0 -> 11)
-- `ccw` = tang chi so (11 -> 0 -> 1 -> ... -> 10 -> 11)
-
-### Dieu khien trong Pygame
-
-- Click 1 o hop le de chon nuoc di.
-- Click nut `CW` hoac `CCW` (hoac bam phim `C`/`X`) de danh.
-- Bam `Esc` de bo chon o.
-
 ## 3. Cai dat cho VS Code
 
 Ban khong bat buoc cai extension nao de chay GUI.
@@ -75,28 +48,6 @@ Neu gap loi khi mo cua so pygame:
 Du an ho tro fallback: neu khong co anh thi van ve bang shape.
 
 Dat file vao thu muc: `assets/images/`
-
-Ten file khuyen nghi:
-- `board.png`
-- `pit_small.png`
-- `pit_quan.png`
-- `player_human.png`
-- `player_bot.png`
-- `rps_rock.png`
-- `rps_paper.png`
-- `rps_scissors.png`
-
-Kich thuoc khuyen nghi (px x px):
-- Board background: `2200 x 1040` (tile/scale xuong 1100 x 520)
-- O nho: `160 x 160`
-- O quan: `256 x 256`
-- Avatar nguoi/AI: `512 x 512`
-- Icon RPS: `256 x 256`
-
-Luu y:
-- Nen dung PNG co alpha trong suot.
-- Giu ti le 1:1 cho sprite tron (pit, avatar, RPS).
-- Xuat tai nguyen gap doi kich thuoc hien thi de hinh sac net hon.
 
 ## 5. Cau truc du lieu
 
@@ -332,16 +283,5 @@ Luu y:
 
 ## 8. Mo rong AI
 
-`BotPlayer` dang goi strategy qua `Strategy.get_best_move(...)`.
-
-Team AI co the:
-1. Tao file moi, vi du `game/ai/minimax_strategy.py`.
-2. Implement class ke thua `Strategy`.
-3. Truyen strategy do vao `BotPlayer` trong `game/engine.py`.
-
-## 9. Chay test
-
-```powershell
-python -m unittest discover -s tests -p "test_*.py"
-```
+Update thuat toan minmax + alpha beta
 
