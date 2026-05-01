@@ -304,9 +304,11 @@ class GameScene(BaseScene):
 
 		active = self.engine.get_active_player()
 		if isinstance(active, BotPlayer):
-			pit, direction = active.choose_move(
-				self.engine.board.get_state(), self.turn_context.valid_moves
-			)
+			# give the strategy access to captured/borrowed totals
+			board_state = self.engine.board.get_state()
+			board_state["captured_by_player"] = self.engine.captured_by_player.copy()
+			board_state["borrowed_by_player"] = self.engine.borrowed_by_player.copy()
+			pit, direction = active.choose_move(board_state, self.turn_context.valid_moves)
 			self._apply_move(pit, direction)
 
 	def _draw_gradient(self, surface: pygame.Surface) -> None:

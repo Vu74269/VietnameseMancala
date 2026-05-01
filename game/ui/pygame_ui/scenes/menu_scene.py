@@ -169,6 +169,12 @@ class MenuScene(BaseScene):
 	def _start_game(self) -> None:
 		p1_name = self.input_p1.text.strip() or PLAYER_NAMES[0]
 		p2_name = self.input_p2.text.strip() or ("Bot" if self.mode == "pvb" else PLAYER_NAMES[1])
+		# If PvB, first go to BotSelectScene to choose bot AI mode
+		if self.mode == "pvb":
+			from game.ui.pygame_ui.scenes.bot_select_scene import BotSelectScene
+			self.app.set_scene(BotSelectScene(self.app, self.assets, self.mode, p1_name, p2_name))
+			return
+
 		self.app.set_scene(
 			RpsScene(self.app, self.assets, self.mode, p1_name, p2_name)
 		)
