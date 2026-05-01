@@ -22,12 +22,14 @@ class RpsScene(BaseScene):
 		mode: str,
 		p1_name: str,
 		p2_name: str,
+		bot_type: str = "random",
 	) -> None:
 		self.app = app
 		self.assets = assets
 		self.mode = mode
 		self.p1_name = p1_name or PLAYER_NAMES[0]
 		self.p2_name = p2_name or ("Bot" if mode == "pvb" else PLAYER_NAMES[1])
+		self.bot_type = bot_type if bot_type in ("random", "greedy") else "random"
 
 		self.title_font = pygame.font.SysFont("georgia", 48, bold=True)
 		self.body_font = pygame.font.SysFont("segoeui", 22)
@@ -79,9 +81,23 @@ class RpsScene(BaseScene):
 	def _go_to_game(self) -> None:
 		# Lazy import to avoid circular dependency
 		from game.ui.pygame_ui.scenes.game_scene import GameScene
-		engine = GameEngine(mode=self.mode)
-		engine.set_player_name(0, self.p1_name)
-		engine.set_player_name(1, self.p2_name)
+		# Build GameEngine with chosen players/strategies
+		if self.mode == "pvb":
+			from game.players.human_player import HumanPlayer
+			from game.players.bot_player import BotPlayer
+			from game.ai.base_strategy import GreedyStrategy, RandomStrategy
+
+			p0 = HumanPlayer(0, self.p1_name)
+			if self.bot_type == "greedy":
+				strategy = GreedyStrategy()
+			else:
+				strategy = RandomStrategy()
+			p1 = BotPlayer(1, self.p2_name, strategy)
+			engine = GameEngine(mode=self.mode, players=[p0, p1])
+		else:
+			from game.players.human_player import HumanPlayer
+			engine = GameEngine(mode=self.mode, players=[HumanPlayer(0, self.p1_name), HumanPlayer(1, self.p2_name)])
+
 		engine.start(first_player=self.winner)
 		self.app.set_scene(
 			GameScene(self.app, engine, self.assets, (self.pick_0, self.pick_1))

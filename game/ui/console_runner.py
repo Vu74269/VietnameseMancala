@@ -64,7 +64,11 @@ def run_console_game(mode: str) -> None:
 			ConsoleUI.show_resupply(context.player_name, context.borrowed)
 
 		active = engine.get_active_player()
-		pit, direction = active.choose_move(engine.board.get_state(), context.valid_moves)
+		# provide strategy with full game state (including captured/borrowed)
+		board_state = engine.board.get_state()
+		board_state["captured_by_player"] = engine.captured_by_player.copy()
+		board_state["borrowed_by_player"] = engine.borrowed_by_player.copy()
+		pit, direction = active.choose_move(board_state, context.valid_moves)
 		move = engine.execute_move(pit, direction)
 		ConsoleUI.show_move_summary(
 			move.player_name,
