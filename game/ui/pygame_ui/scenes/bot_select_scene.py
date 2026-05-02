@@ -35,11 +35,12 @@ class BotSelectScene(BaseScene):
 		# buttons
 		self.btn_random = Button(pygame.Rect(340, 260, 400, 60), "Random", self.body_font, settings.BUTTON_BG, settings.BUTTON_BG_HOVER, settings.BUTTON_TEXT, settings.WHITE)
 		self.btn_greedy = Button(pygame.Rect(340, 340, 400, 60), "Greedy", self.body_font, settings.BUTTON_BG, settings.BUTTON_BG_HOVER, settings.BUTTON_TEXT, settings.WHITE)
+		self.btn_minimax = Button(pygame.Rect(340, 420, 400, 60), "Minimax", self.body_font, settings.BUTTON_BG, settings.BUTTON_BG_HOVER, settings.BUTTON_TEXT, settings.WHITE)
 		self.btn_back = Button(pygame.Rect(360, 560, 220, 48), "Back", self.body_font, settings.BUTTON_BG, settings.BUTTON_BG_HOVER, settings.BUTTON_TEXT, settings.WHITE)
 		self.btn_start = Button(pygame.Rect(700, 560, 220, 48), "Next", self.body_font, settings.BUTTON_BG, settings.BUTTON_BG_HOVER, settings.BUTTON_TEXT, settings.WHITE)
 
 		self.bot_type = "random"
-		self.message = "Choose bot AI mode: Random or Greedy"
+		self.message = "Choose bot AI mode: Random, Greedy or Minimax"
 
 	def handle_event(self, event: pygame.event.Event) -> None:
 		if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
@@ -50,6 +51,10 @@ class BotSelectScene(BaseScene):
 			if self.btn_greedy.is_clicked(event):
 				self.bot_type = "greedy"
 				self.message = "Bot mode: Greedy"
+				return
+			if self.btn_minimax.is_clicked(event):
+				self.bot_type = "minimax"
+				self.message = "Bot mode: Minimax"
 				return
 			if self.btn_back.is_clicked(event):
 				from game.ui.pygame_ui.scenes.menu_scene import MenuScene
@@ -82,13 +87,14 @@ class BotSelectScene(BaseScene):
 		# draw buttons
 		self.btn_random.draw(surface)
 		self.btn_greedy.draw(surface)
+		self.btn_minimax.draw(surface)
 		self.btn_back.draw(surface)
 		self.btn_start.draw(surface)
 
 		# selected indicator
 		sel_text = self.small_font.render(f"Selected: {self.bot_type}", True, settings.TEXT_MUTED)
-		surface.blit(sel_text, sel_text.get_rect(center=(settings.WINDOW_WIDTH // 2, 440)))
+		surface.blit(sel_text, sel_text.get_rect(center=(settings.WINDOW_WIDTH // 2, 500)))
 
 		if self.message:
 			msg = self.small_font.render(self.message, True, settings.TEXT_PRIMARY)
-			surface.blit(msg, msg.get_rect(center=(settings.WINDOW_WIDTH // 2, 480)))
+			surface.blit(msg, msg.get_rect(center=(settings.WINDOW_WIDTH // 2, 540)))
