@@ -29,7 +29,7 @@ class RpsScene(BaseScene):
 		self.mode = mode
 		self.p1_name = p1_name or PLAYER_NAMES[0]
 		self.p2_name = p2_name or ("Bot" if mode == "pvb" else PLAYER_NAMES[1])
-		self.bot_type = bot_type if bot_type in ("random", "greedy") else "random"
+		self.bot_type = bot_type if bot_type in ("random", "greedy", "minimax") else "random"
 
 		self.title_font = pygame.font.SysFont("georgia", 48, bold=True)
 		self.body_font = pygame.font.SysFont("segoeui", 22)
@@ -85,11 +85,13 @@ class RpsScene(BaseScene):
 		if self.mode == "pvb":
 			from game.players.human_player import HumanPlayer
 			from game.players.bot_player import BotPlayer
-			from game.ai.base_strategy import GreedyStrategy, RandomStrategy
+			from game.ai.base_strategy import GreedyStrategy, RandomStrategy, MinimaxStrategy
 
 			p0 = HumanPlayer(0, self.p1_name)
 			if self.bot_type == "greedy":
 				strategy = GreedyStrategy()
+			elif self.bot_type == "minimax":
+				strategy = MinimaxStrategy()
 			else:
 				strategy = RandomStrategy()
 			p1 = BotPlayer(1, self.p2_name, strategy)
