@@ -59,6 +59,7 @@ class GameScene(BaseScene):
 		self.confirm_exit = False
 		self.confirm_yes = pygame.Rect(520, 420, 120, 48)
 		self.confirm_no = pygame.Rect(660, 420, 120, 48)
+		self.final_back_button = pygame.Rect(565, 455, 150, 44)
 
 	def _build_pit_centers(self) -> Dict[int, Tuple[int, int]]:
 		if settings.PIT_CENTERS:
@@ -232,6 +233,9 @@ class GameScene(BaseScene):
 
 	def handle_event(self, event: pygame.event.Event) -> None:
 		if self.final_result is not None:
+			if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+				if self.final_back_button.collidepoint(event.pos):
+					self.app.set_scene(MenuScene(self.app, self.assets))
 			return
 
 		# if confirm modal active, handle yes/no clicks
@@ -540,6 +544,15 @@ class GameScene(BaseScene):
 
 		winner = self.head_font.render(winner_text, True, (180, 65, 32))
 		surface.blit(winner, (panel.x + 190, panel.y + 215))
+
+		mouse_pos = pygame.mouse.get_pos()
+		btn_bg = (154, 98, 63) if self.final_back_button.collidepoint(mouse_pos) else (140, 90, 60)
+		btn_shadow = self.final_back_button.move(3, 3)
+		pygame.draw.rect(surface, (18, 18, 18), btn_shadow, border_radius=10)
+		pygame.draw.rect(surface, btn_bg, self.final_back_button, border_radius=10)
+		pygame.draw.rect(surface, settings.WHITE, self.final_back_button, 2, border_radius=10)
+		btn_text = self.small_font.render("Back to Menu", True, settings.WHITE)
+		surface.blit(btn_text, btn_text.get_rect(center=self.final_back_button.center))
 
 	def draw(self, surface: pygame.Surface) -> None:
 		self._draw_background(surface)
