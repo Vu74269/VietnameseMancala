@@ -8,6 +8,7 @@ from typing import Dict, Optional, Tuple
 import pygame
 
 from config import CLOCKWISE, COUNTER_CLOCKWISE
+from game.board import Board
 from game.engine import GameEngine, FinalResult, TurnContext
 from game.players.bot_player import BotPlayer
 from game.ui.pygame_ui.assets import AssetManager
@@ -34,9 +35,9 @@ class GameScene(BaseScene):
 		self.small_font = pygame.font.SysFont("segoeui", 18)
 
 		self.pit_centers = self._build_pit_centers()
-		# Circular buttons for CW/CCW arrows
-		self.cw_button = pygame.Rect(930, 636, 68, 68)
-		self.ccw_button = pygame.Rect(1016, 636, 68, 68)
+		# Circular buttons for CW/CCW arrows (positions swapped: right arrow on the right)
+		self.cw_button = pygame.Rect(1016, 636, 68, 68)
+		self.ccw_button = pygame.Rect(930, 636, 68, 68)
 
 		# Back button
 		self.btn_back = pygame.Rect(28, 646, 120, 46)
@@ -49,11 +50,17 @@ class GameScene(BaseScene):
 
 		# animation / display overlay state
 		self.anim_active = False
-		self.anim_steps: list[int] = []
-		self.anim_step_idx = 0
+		self.anim_frames: list[Board] = []
+		self.anim_frame_idx = 0
 		self.anim_timer = 0.0
-		self.anim_interval = 0.10
-		self.board_display_seeds = self.engine.board.seeds.copy()
+		self.anim_interval = 0.35
+		self.display_board: Board = self.engine.board.copy()
+
+		# bot selection display state
+		self.bot_selected_pit: Optional[int] = None
+		self.bot_selected_direction: Optional[int] = None
+		self.bot_select_timer = 0.0
+		self.bot_select_delay = 1.0
 
 		# confirm-exit modal
 		self.confirm_exit = False
@@ -162,50 +169,71 @@ class GameScene(BaseScene):
 			return
 		self._apply_move(self.selected_pit, direction)
 
-	def _simulate_distribution_steps(self, pit: int, direction: int) -> list:
-		"""Simulate which pits will receive seeds in order without mutating the real board.
-		Returns list of pit indices in the distribution order."""
+	def _build_animation_frames(self, pit: int, direction: int) -> list[Board]:
+		"""Build board snapshots that exactly mirror the engine move flow."""
 		from game.board import Board
-		# local copy
-		seeds = self.engine.board.seeds.copy()
-		hand = seeds[pit]
-		seeds[pit] = 0
+
+		board = self.engine.board.copy()
+		frames: list[Board] = []
+
+		def can_capture_target(target_idx: int) -> bool:
+			if board.is_quan_pit(target_idx) and board.has_quan(target_idx):
+				return board.seeds[target_idx] >= 5
+			return board.seeds[target_idx] > 0
+
+		def capture_target(target_idx: int) -> None:
+			board.seeds[target_idx] = 0
+			if board.is_quan_pit(target_idx) and board.has_quan(target_idx):
+				board.remove_quan(target_idx)
+
+		hand = board.clear_pit(pit)
 		current_idx = pit
-		steps: list[int] = []
 
 		while True:
 			while hand > 0:
 				current_idx = Board.next_index(current_idx, direction)
-				seeds[current_idx] += 1
+				board.seeds[current_idx] += 1
 				hand -= 1
-				steps.append(current_idx)
+				frames.append(board.copy())
 
 			next_idx = Board.next_index(current_idx, direction)
 
-			# if next is quan alive -> stop
-			if self.engine.board.is_quan_pit(next_idx) and self.engine.board.has_quan(next_idx):
+			if board.is_quan_pit(next_idx) and board.has_quan(next_idx):
 				break
 
-			# if next has seeds -> pick them up and continue
-			if seeds[next_idx] > 0:
-				hand = seeds[next_idx]
-				seeds[next_idx] = 0
+			if board.seeds[next_idx] > 0:
+				hand = board.clear_pit(next_idx)
+				frames.append(board.copy())
 				current_idx = next_idx
 				continue
 
-			# otherwise potential capture or stop
-			# we record stops but don't mutate further here
+			target_idx = Board.next_index(next_idx, direction)
+			if can_capture_target(target_idx):
+				while can_capture_target(target_idx):
+					capture_target(target_idx)
+					frames.append(board.copy())
+
+					empty_idx = Board.next_index(target_idx, direction)
+					next_target_idx = Board.next_index(empty_idx, direction)
+
+					if board.seeds[empty_idx] != 0 or board.has_quan(empty_idx):
+						break
+					if not can_capture_target(next_target_idx):
+						break
+					target_idx = next_target_idx
+
 			break
 
-		return steps
+		if not frames:
+			frames.append(board.copy())
+		return frames
 
 	def _apply_move(self, pit: int, direction: int) -> None:
 		# prepare animation steps from current board
-		self.board_display_seeds = self.engine.board.seeds.copy()
-		# visually pick up the stones from source
-		self.board_display_seeds[pit] = 0
-		self.anim_steps = self._simulate_distribution_steps(pit, direction)
-		self.anim_step_idx = 0
+		self.display_board = self.engine.board.copy()
+		self.display_board.clear_pit(pit)
+		self.anim_frames = self._build_animation_frames(pit, direction)
+		self.anim_frame_idx = 0
 		self.anim_timer = 0.0
 		self.anim_active = True
 
@@ -287,16 +315,28 @@ class GameScene(BaseScene):
 		# animation advance
 		if self.anim_active:
 			self.anim_timer += dt
-			if self.anim_timer >= self.anim_interval and self.anim_step_idx < len(self.anim_steps):
-				# apply next step visually
-				target = self.anim_steps[self.anim_step_idx]
-				self.board_display_seeds[target] += 1
-				self.anim_step_idx += 1
+			if self.anim_timer >= self.anim_interval and self.anim_frame_idx < len(self.anim_frames):
+				self.display_board = self.anim_frames[self.anim_frame_idx].copy()
+				self.anim_frame_idx += 1
 				self.anim_timer = 0.0
-				# when finished, sync with real board
-			if self.anim_step_idx >= len(self.anim_steps):
+			if self.anim_frame_idx >= len(self.anim_frames):
 				self.anim_active = False
-				self.board_display_seeds = self.engine.board.seeds.copy()
+			return
+
+		# bot selection display (show red circle on selected pit for 0.35s before moving)
+		if self.bot_selected_pit is not None:
+			self.bot_select_timer += dt
+			if self.bot_select_timer >= self.bot_select_delay:
+				direction = self.bot_selected_direction
+				if direction is None:
+					self.bot_selected_pit = None
+					self.bot_select_timer = 0.0
+					return
+				# now apply the move
+				self._apply_move(self.bot_selected_pit, direction)
+				self.bot_selected_pit = None
+				self.bot_selected_direction = None
+				self.bot_select_timer = 0.0
 			return
 
 		if self.final_result is not None:
@@ -313,7 +353,11 @@ class GameScene(BaseScene):
 			board_state["captured_by_player"] = self.engine.captured_by_player.copy()
 			board_state["borrowed_by_player"] = self.engine.borrowed_by_player.copy()
 			pit, direction = active.choose_move(board_state, self.turn_context.valid_moves)
-			self._apply_move(pit, direction)
+			# Instead of applying move immediately, set bot selection state
+			self.bot_selected_pit = pit
+			self.bot_selected_direction = direction
+			self.bot_select_timer = 0.0
+			self.message = f"Bot selected pit {pit}."
 
 	def _draw_gradient(self, surface: pygame.Surface) -> None:
 		for y in range(settings.WINDOW_HEIGHT):
@@ -338,29 +382,53 @@ class GameScene(BaseScene):
 				border_radius=28,
 			)
 
+	def _pick_pit_image_name(self, board: Board, idx: int, seed_count: int) -> Optional[str]:
+		is_quan_pit = idx in (0, 6)
+		if is_quan_pit:
+			has_quan = board.has_quan(idx)
+			if seed_count <= 0 and not has_quan:
+				return None
+			seed_key = max(0, min(seed_count, 15))
+			quan_key = 1 if has_quan else 0
+			return f"{quan_key}_pit_quan_{seed_key}_pit_small"
+
+		if seed_count <= 0:
+			return None
+		seed_key = max(1, min(seed_count, 15))
+		return f"{seed_key}_pit_small"
+
 	def _draw_pit(self, surface: pygame.Surface, idx: int, is_valid: bool) -> None:
 		center = self.pit_centers[idx]
 		is_quan_pit = idx in (0, 6)
 		radius = settings.QUAN_PIT_RADIUS if is_quan_pit else settings.SMALL_PIT_RADIUS
+		board = self.display_board if self.anim_active else self.engine.board
+		seed_count = board.seeds[idx]
+		pit_image_name = self._pick_pit_image_name(board, idx, seed_count)
 
-		if is_quan_pit:
-			pit_img = self.assets.load_image("pit_quan", size=(radius * 2, radius * 2))
-		else:
-			pit_img = self.assets.load_image("pit_small", size=(radius * 2, radius * 2))
+		pit_img = None
+		if pit_image_name is not None:
+			pit_img = self.assets.load_image(pit_image_name, size=(radius * 2, radius * 2))
+			# Fallback to the old base pit image if a specific sprite is missing.
+			if pit_img is None:
+				fallback_name = "pit_quan" if is_quan_pit else "pit_small"
+				pit_img = self.assets.load_image(fallback_name, size=(radius * 2, radius * 2))
 
 		if pit_img is not None:
 			rect = pit_img.get_rect(center=center)
 			surface.blit(pit_img, rect)
-		else:
+		elif pit_image_name is not None:
 			fill_color = settings.PIT_HIGHLIGHT if is_valid else settings.PIT_COLOR
 			pygame.draw.circle(surface, fill_color, center, radius)
 			pygame.draw.circle(surface, settings.BOARD_BORDER, center, radius, 3)
 
+		# Draw red circle for player selection
 		if self.selected_pit == idx:
 			pygame.draw.circle(surface, settings.PIT_SELECTED, center, radius + 4, 4)
 
-		# use display seeds when animating, otherwise real board
-		seed_count = self.board_display_seeds[idx] if self.anim_active else self.engine.board.seeds[idx]
+		# Draw red circle for bot selection
+		if self.bot_selected_pit == idx:
+			pygame.draw.circle(surface, settings.PIT_SELECTED, center, radius + 4, 4)
+
 		# only show seed count (no pit index)
 		text = self.body_font.render(str(seed_count), True, settings.WHITE)
 		text_rect = text.get_rect(center=center)
@@ -371,7 +439,7 @@ class GameScene(BaseScene):
 		)
 		surface.blit(text, text_rect)
 
-		if is_quan_pit and self.engine.board.has_quan(idx):
+		if is_quan_pit and board.has_quan(idx):
 			marker = self.small_font.render("Q", True, (255, 240, 120))
 			marker_rect = marker.get_rect(center=(center[0], center[1] - radius + 18))
 			surface.blit(marker, marker_rect)
@@ -383,33 +451,22 @@ class GameScene(BaseScene):
 		clockwise: bool,
 		radius: int = 17,
 	) -> None:
-		"""Draw a true circular arrow by drawing an arc and an arrow head."""
+		"""Draw a simple left/right arrow icon."""
 		if clockwise:
-			angles = list(range(230, -40, -18))
+			shaft_start = (center[0] - radius + 3, center[1])
+			shaft_end = (center[0] + radius - 4, center[1])
+			head_tip = (center[0] + radius, center[1])
+			head_left = (center[0] + radius - 7, center[1] - 6)
+			head_right = (center[0] + radius - 7, center[1] + 6)
 		else:
-			angles = list(range(-50, 230, 18))
+			shaft_start = (center[0] + radius - 3, center[1])
+			shaft_end = (center[0] - radius + 4, center[1])
+			head_tip = (center[0] - radius, center[1])
+			head_left = (center[0] - radius + 7, center[1] - 6)
+			head_right = (center[0] - radius + 7, center[1] + 6)
 
-		points = []
-		for ang in angles:
-			rad = math.radians(ang)
-			x = int(center[0] + radius * math.cos(rad))
-			y = int(center[1] + radius * math.sin(rad))
-			points.append((x, y))
-
-		if len(points) >= 2:
-			pygame.draw.lines(surface, settings.WHITE, False, points, 4)
-			tip = points[-1]
-			prev = points[-2]
-			theta = math.atan2(tip[1] - prev[1], tip[0] - prev[0])
-			left = (
-				int(tip[0] - 9 * math.cos(theta - 0.6)),
-				int(tip[1] - 9 * math.sin(theta - 0.6)),
-			)
-			right = (
-				int(tip[0] - 9 * math.cos(theta + 0.6)),
-				int(tip[1] - 9 * math.sin(theta + 0.6)),
-			)
-			pygame.draw.polygon(surface, settings.WHITE, [tip, left, right])
+		pygame.draw.line(surface, settings.WHITE, shaft_start, shaft_end, 4)
+		pygame.draw.polygon(surface, settings.WHITE, [head_tip, head_left, head_right])
 
 	def _draw_buttons(self, surface: pygame.Surface) -> None:
 		mouse_pos = pygame.mouse.get_pos()
