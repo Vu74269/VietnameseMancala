@@ -324,10 +324,20 @@ class GameScene(BaseScene):
 			self.message = f"Selected pit {pit}. Choose direction CW/CCW."
 			return
 
-		if self.cw_button.collidepoint(mouse_pos):
-			self._try_apply_human_move(COUNTER_CLOCKWISE)
-		elif self.ccw_button.collidepoint(mouse_pos):
-			self._try_apply_human_move(CLOCKWISE)
+		# For PvP: swap button logic based on current player
+		is_pvp = len(self.engine.players) == 2 and not isinstance(self.engine.players[1], BotPlayer)
+		if is_pvp and self.engine.current_player == 1:
+			# Player 2's turn: swap button logic
+			if self.cw_button.collidepoint(mouse_pos):
+				self._try_apply_human_move(CLOCKWISE)
+			elif self.ccw_button.collidepoint(mouse_pos):
+				self._try_apply_human_move(COUNTER_CLOCKWISE)
+		else:
+			# Player 1's turn or PvB: normal logic
+			if self.cw_button.collidepoint(mouse_pos):
+				self._try_apply_human_move(COUNTER_CLOCKWISE)
+			elif self.ccw_button.collidepoint(mouse_pos):
+				self._try_apply_human_move(CLOCKWISE)
 
 	def update(self, dt: float) -> None:
 		# animation advance
@@ -489,25 +499,40 @@ class GameScene(BaseScene):
 	def _draw_buttons(self, surface: pygame.Surface) -> None:
 		mouse_pos = pygame.mouse.get_pos()
 		
+		# For PvP: swap button positions based on current player
+		is_pvp = len(self.engine.players) == 2 and not isinstance(self.engine.players[1], BotPlayer)
+		if is_pvp and self.engine.current_player == 1:
+			# Player 2's turn: swap positions
+			cw_button = self.ccw_button
+			ccw_button = self.cw_button
+			cw_clockwise = False
+			ccw_clockwise = True
+		else:
+			# Player 1's turn or PvB: normal positions
+			cw_button = self.cw_button
+			ccw_button = self.ccw_button
+			cw_clockwise = True
+			ccw_clockwise = False
+		
 		# Draw CW button (clockwise arrow)
-		cw_center = (self.cw_button.centerx, self.cw_button.centery)
-		is_cw_hover = self.cw_button.collidepoint(mouse_pos)
+		cw_center = (cw_button.centerx, cw_button.centery)
+		is_cw_hover = cw_button.collidepoint(mouse_pos)
 		bg_cw = (52, 168, 84) if is_cw_hover else (39, 148, 72)
 		pygame.draw.circle(surface, (18, 18, 18), (cw_center[0] + 4, cw_center[1] + 4), 34)
 		pygame.draw.circle(surface, bg_cw, cw_center, 32)
 		pygame.draw.circle(surface, (95, 205, 120), (cw_center[0], cw_center[1] - 8), 18)
 		pygame.draw.circle(surface, settings.WHITE, cw_center, 32, 2)
-		self._draw_circular_arrow_icon(surface, cw_center, clockwise=True)
+		self._draw_circular_arrow_icon(surface, cw_center, clockwise=cw_clockwise)
 		
 		# Draw CCW button (counter-clockwise arrow)
-		ccw_center = (self.ccw_button.centerx, self.ccw_button.centery)
-		is_ccw_hover = self.ccw_button.collidepoint(mouse_pos)
+		ccw_center = (ccw_button.centerx, ccw_button.centery)
+		is_ccw_hover = ccw_button.collidepoint(mouse_pos)
 		bg_ccw = (52, 168, 84) if is_ccw_hover else (39, 148, 72)
 		pygame.draw.circle(surface, (18, 18, 18), (ccw_center[0] + 4, ccw_center[1] + 4), 34)
 		pygame.draw.circle(surface, bg_ccw, ccw_center, 32)
 		pygame.draw.circle(surface, (95, 205, 120), (ccw_center[0], ccw_center[1] - 8), 18)
 		pygame.draw.circle(surface, settings.WHITE, ccw_center, 32, 2)
-		self._draw_circular_arrow_icon(surface, ccw_center, clockwise=False)
+		self._draw_circular_arrow_icon(surface, ccw_center, clockwise=ccw_clockwise)
 
 		# draw back button
 		back_bg = (154, 98, 63) if self.btn_back.collidepoint(mouse_pos) else (140, 90, 60)

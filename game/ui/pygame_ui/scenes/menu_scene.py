@@ -4,11 +4,9 @@ from __future__ import annotations
 
 import pygame
 
-from config import PLAYER_NAMES
 from game.ui.pygame_ui.assets import AssetManager
 from game.ui.pygame_ui.scenes.base_scene import BaseScene
-from game.ui.pygame_ui.scenes.rps_scene import RpsScene
-from game.ui.pygame_ui.widgets import Button, TextInput
+from game.ui.pygame_ui.widgets import Button
 from game.ui.pygame_ui import settings
 
 
@@ -23,7 +21,6 @@ class MenuScene(BaseScene):
 		self.small_font = pygame.font.SysFont("segoeui", 18)
 
 		self.mode = "pvp"
-		self.step = "menu"
 
 		# Main menu buttons - directly start game
 		self.btn_pvp = Button(
@@ -54,41 +51,7 @@ class MenuScene(BaseScene):
 			settings.WHITE,
 		)
 
-		self.btn_back = Button(
-			pygame.Rect(360, 560, 220, 48),
-			"Quay lại",
-			self.body_font,
-			settings.BUTTON_BG,
-			settings.BUTTON_BG_HOVER,
-			settings.BUTTON_TEXT,
-			settings.WHITE,
-		)
-		self.btn_start = Button(
-			pygame.Rect(700, 560, 220, 48),
-			"Bắt đầu",
-			self.body_font,
-			settings.BUTTON_BG,
-			settings.BUTTON_BG_HOVER,
-			settings.BUTTON_TEXT,
-			settings.WHITE,
-		)
 
-		self.input_p1 = TextInput(
-			pygame.Rect(420, 330, 440, 46),
-			self.body_font,
-			"Người chơi 1",
-		)
-		self.input_p2 = TextInput(
-			pygame.Rect(420, 400, 440, 46),
-			self.body_font,
-			"Đối thủ",
-		)
-
-		self._apply_default_names()
-
-	def _apply_default_names(self) -> None:
-		self.input_p1.set_text(PLAYER_NAMES[0])
-		self.input_p2.set_text("Trẻ con")
 
 	def _draw_gradient(self, surface: pygame.Surface) -> None:
 		for y in range(settings.WINDOW_HEIGHT):
@@ -123,79 +86,27 @@ class MenuScene(BaseScene):
 		self.btn_pvb.draw(surface)
 		self.btn_quit.draw(surface)
 
-	def _draw_name_entry(self, surface: pygame.Surface) -> None:
-		title = "Tên người chơi" if self.mode == "pvp" else "Chọn đối thủ"
-		self._draw_title(surface, title)
 
-		label_1 = self.small_font.render("Người chơi 1", True, settings.TEXT_MUTED)
-		surface.blit(label_1, (420, 305))
-		self.input_p1.draw(
-			surface,
-			settings.INPUT_BG,
-			settings.INPUT_BORDER,
-			settings.INPUT_BORDER_ACTIVE,
-			settings.TEXT_PRIMARY,
-			settings.TEXT_MUTED,
-		)
 
-		label_2 = self.small_font.render(
-			"Người chơi 2" if self.mode == "pvp" else "Đối thủ",
-			True,
-			settings.TEXT_MUTED,
-		)
-		surface.blit(label_2, (420, 375))
-		self.input_p2.draw(
-			surface,
-			settings.INPUT_BG,
-			settings.INPUT_BORDER,
-			settings.INPUT_BORDER_ACTIVE,
-			settings.TEXT_PRIMARY,
-			settings.TEXT_MUTED,
-		)
-
-		self.btn_back.draw(surface)
-		self.btn_start.draw(surface)
-
-	def _apply_mode(self, mode: str) -> None:
-		self.mode = mode
-		if mode == "pvp":
-			self.input_p2.set_text(PLAYER_NAMES[1])
-		else:
-			self.input_p2.set_text("Trẻ con")
-
-	def _start_game(self) -> None:
-		p1_name = self.input_p1.text.strip() or PLAYER_NAMES[0]
-		p2_name = self.input_p2.text.strip() or ("Bot" if self.mode == "pvb" else PLAYER_NAMES[1])
-		# If PvB, first go to BotSelectScene to choose bot AI mode
-		if self.mode == "pvb":
-			from game.ui.pygame_ui.scenes.bot_select_scene import BotSelectScene
-			self.app.set_scene(BotSelectScene(self.app, self.assets, self.mode, p1_name, p2_name))
-			return
-
-		self.app.set_scene(
-			RpsScene(self.app, self.assets, self.mode, p1_name, p2_name)
-		)
 
 	def handle_event(self, event: pygame.event.Event) -> None:
-		if self.step == "menu":
-			if self.btn_pvp.is_clicked(event):
-				self.mode = "pvp"
-				self._start_game()
-				return
-			if self.btn_pvb.is_clicked(event):
-				self.mode = "pvb"
-				self._start_game()
-				return
-			if self.btn_quit.is_clicked(event):
-				self.app.request_quit()
-				return
+		if self.btn_pvp.is_clicked(event):
+			from game.ui.pygame_ui.scenes.name_input_scene import NameInputScene
+			self.app.set_scene(NameInputScene(self.app, self.assets, "pvp"))
+			return
+		if self.btn_pvb.is_clicked(event):
+			from game.ui.pygame_ui.scenes.name_input_scene import NameInputScene
+			self.app.set_scene(NameInputScene(self.app, self.assets, "pvb"))
+			return
+		if self.btn_quit.is_clicked(event):
+			self.app.request_quit()
+			return
 
 	def update(self, dt: float) -> None:
 		_ = dt
 
 	def draw(self, surface: pygame.Surface) -> None:
 		self._draw_background(surface)
-		if self.step == "menu":
-			self._draw_menu(surface)
-		else:
-			self._draw_name_entry(surface)
+		self._draw_menu(surface)
+
+

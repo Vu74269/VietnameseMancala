@@ -63,7 +63,9 @@ class BotSelectScene(BaseScene):
 
 	def _launch_rps(self) -> None:
 		from game.ui.pygame_ui.scenes.rps_scene import RpsScene
-		self.app.set_scene(RpsScene(self.app, self.assets, self.mode, self.p1_name, self.selected_bot_name, self.bot_type))
+		# Use bot name for PvB, use player name for PvP
+		p2_name = self.selected_bot_name if self.mode == "pvb" else PLAYER_NAMES[1]
+		self.app.set_scene(RpsScene(self.app, self.assets, self.mode, self.p1_name, p2_name, self.bot_type))
 
 	def _select_bot(self, bot_type: str) -> None:
 		self.bot_type = bot_type

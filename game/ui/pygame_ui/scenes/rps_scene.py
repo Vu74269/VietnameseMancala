@@ -34,7 +34,11 @@ class RpsScene(BaseScene):
 		self.assets = assets
 		self.mode = mode
 		self.p1_name = p1_name or PLAYER_NAMES[0]
-		self.p2_name = p2_name or ("Bot" if mode == "pvb" else PLAYER_NAMES[1])
+		# For PvP: always use PLAYER_NAMES[1] as default, never use BOT_LABELS
+		if mode == "pvp":
+			self.p2_name = p2_name or PLAYER_NAMES[1]
+		else:
+			self.p2_name = p2_name or ("Bot" if mode == "pvb" else PLAYER_NAMES[1])
 		self.bot_type = bot_type if bot_type in ("random", "greedy", "minimax") else "random"
 		self.bot_label = self.BOT_LABELS[self.bot_type]
 

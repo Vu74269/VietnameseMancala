@@ -70,6 +70,9 @@ class TextInput:
 		self.max_length = max_length
 		self.text = ""
 		self.active = False
+		self.caret_color = (168, 168, 168)
+		self.caret_width = 2
+		self.caret_blink_ms = 500
 
 	def set_text(self, value: str) -> None:
 		self.text = value[: self.max_length]
@@ -103,9 +106,27 @@ class TextInput:
 	) -> None:
 		pygame.draw.rect(surface, bg, self.rect, border_radius=8)
 		active_border = border_active if self.active else border
-		pygame.draw.rect(surface, active_border, self.rect, 2, border_radius=8)
+		pygame.draw.rect(surface, active_border, self.rect, 2, border_radius=12)
 		value = self.text if self.text else self.placeholder
 		color = text_color if self.text else placeholder_color
 		text = self.font.render(value, True, color)
 		text_rect = text.get_rect(midleft=(self.rect.x + 12, self.rect.centery))
 		surface.blit(text, text_rect)
+
+		if self.active:
+			# Blink the caret so focus is obvious even when the field is empty.
+			phase = (pygame.time.get_ticks() // self.caret_blink_ms) % 2
+			if phase == 0:
+				if self.text:
+					caret_x = text_rect.right + 2
+				else:
+					caret_x = self.rect.x + 12
+				caret_top = self.rect.centery - max(10, self.font.get_height() // 2)
+				caret_bottom = self.rect.centery + max(10, self.font.get_height() // 2) - 2
+				pygame.draw.line(
+					surface,
+					self.caret_color,
+					(caret_x, caret_top),
+					(caret_x, caret_bottom),
+					self.caret_width,
+				)
