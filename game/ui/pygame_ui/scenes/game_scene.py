@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 from typing import Dict, Optional, Tuple
 
 import pygame
@@ -18,19 +17,27 @@ from game.ui.pygame_ui import settings
 
 
 class GameScene(BaseScene):
+	BOT_AVATAR_MAP = {
+		"random": "bot1",
+		"greedy": "bot2",
+		"minimax": "bot3",
+	}
+
 	def __init__(
 		self,
 		app: "PygameApp",
 		engine: GameEngine,
 		assets: AssetManager,
 		last_rps: Tuple[str, str] | None = None,
+		bot_type: str = "random",
 	) -> None:
 		self.app = app
 		self.engine = engine
 		self.assets = assets
 
-		self.title_font = pygame.font.SysFont("georgia", 40, bold=True)
-		self.head_font = pygame.font.SysFont("cambria", 28, bold=True)
+		self.title_font = pygame.font.SysFont("tahoma", 40, bold=True)
+		self.head_font = pygame.font.SysFont("tahoma", 28, bold=True)
+		self.name_font = pygame.font.SysFont("tahoma", 20, bold=True)
 		self.body_font = pygame.font.SysFont("segoeui", 22)
 		self.small_font = pygame.font.SysFont("segoeui", 18)
 
@@ -46,7 +53,14 @@ class GameScene(BaseScene):
 		self.final_result: Optional[FinalResult] = None
 		self.selected_pit: Optional[int] = None
 		self.last_rps: Tuple[str, str] = last_rps or ("rock", "paper")
-		self.message = "Chon o hop le, sau do bam nut mui ten de rai quan."
+		self.message = "Hãy chọn ô hợp lệ rồi bấm nút mũi tên để rải quân."
+		self.bot_type = bot_type if bot_type in self.BOT_AVATAR_MAP else "random"
+		self.bot_avatar_name = self.BOT_AVATAR_MAP[self.bot_type]
+		self.bot_border_color = {
+			"random": (58, 126, 72),
+			"greedy": (54, 103, 166),
+			"minimax": (170, 62, 62),
+		}[self.bot_type]
 
 		# animation / display overlay state
 		self.anim_active = False
@@ -60,13 +74,13 @@ class GameScene(BaseScene):
 		self.bot_selected_pit: Optional[int] = None
 		self.bot_selected_direction: Optional[int] = None
 		self.bot_select_timer = 0.0
-		self.bot_select_delay = 1.0
+		self.bot_select_delay = 0.35
 
 		# confirm-exit modal
 		self.confirm_exit = False
 		self.confirm_yes = pygame.Rect(520, 420, 120, 48)
 		self.confirm_no = pygame.Rect(660, 420, 120, 48)
-		self.final_back_button = pygame.Rect(565, 455, 150, 44)
+		self.final_back_button = pygame.Rect(565, 485, 150, 44)
 
 	def _build_pit_centers(self) -> Dict[int, Tuple[int, int]]:
 		if settings.PIT_CENTERS:
@@ -104,15 +118,19 @@ class GameScene(BaseScene):
 		image_name: str,
 		center: Tuple[int, int],
 		radius: int = 34,
+		border_color: Tuple[int, int, int] | None = None,
 	) -> None:
-		avatar = self.assets.load_image(image_name, size=(radius * 2, radius * 2))
+		border = border_color or settings.BOARD_BORDER
+		pygame.draw.circle(surface, settings.WHITE, center, radius)
+		pygame.draw.circle(surface, border, center, radius, 4)
+		avatar = self.assets.load_image(image_name, size=(radius * 2 - 12, radius * 2 - 12))
 		if avatar is not None:
 			rect = avatar.get_rect(center=center)
 			surface.blit(avatar, rect)
 			return
 
-		pygame.draw.circle(surface, (225, 210, 178), center, radius)
-		pygame.draw.circle(surface, settings.BOARD_BORDER, center, radius, 2)
+		fallback = self.small_font.render(image_name[:1].upper(), True, settings.TEXT_PRIMARY)
+		surface.blit(fallback, fallback.get_rect(center=center))
 
 	def _draw_rps_icon(
 		self,
@@ -140,18 +158,18 @@ class GameScene(BaseScene):
 
 		context = self.engine.prepare_turn()
 		if not context.valid_moves:
-			self.message = f"{context.player_name} has no valid pit. Turn skipped."
+			self.message = f"{context.player_name} không có ô hợp lệ. Bỏ lượt."
 			self.engine.skip_turn()
 			return
 
 		if context.side_was_empty:
 			if context.borrowed > 0:
 				self.message = (
-					f"{context.player_name} had empty side and borrowed "
-					f"{context.borrowed} seeds to refill."
+					f"{context.player_name} có bên trống và đã mượn "
+					f"{context.borrowed} quân để bù lại."
 				)
 			else:
-				self.message = f"{context.player_name} refilled from captured seeds."
+				self.message = f"{context.player_name} được bù lại từ quân đã ăn."
 
 		self.turn_context = context
 
@@ -162,10 +180,10 @@ class GameScene(BaseScene):
 		if self.turn_context is None:
 			return
 		if self.selected_pit is None:
-			self.message = "Please select a pit first."
+			self.message = "Hãy chọn một ô trước."
 			return
 		if self.selected_pit not in self.turn_context.valid_moves:
-			self.message = "Selected pit is not valid for this turn."
+			self.message = "Ô đã chọn không hợp lệ ở lượt này."
 			return
 		self._apply_move(self.selected_pit, direction)
 
@@ -239,10 +257,10 @@ class GameScene(BaseScene):
 
 		# perform logical move immediately so engine state updates
 		move = self.engine.execute_move(pit, direction)
-		direction_label = "cw" if direction == CLOCKWISE else "ccw"
+		direction_label = "xuôi chiều" if direction == CLOCKWISE else "ngược chiều"
 		self.message = (
-			f"{move.player_name} moved pit {move.pit} {direction_label}. "
-			f"Captured: {move.captured}."
+			f"{move.player_name} đi ô {move.pit} theo hướng {direction_label}. "
+			f"Đã ăn: {move.captured}."
 		)
 		self.engine.end_turn()
 		self.turn_context = None
@@ -357,7 +375,7 @@ class GameScene(BaseScene):
 			self.bot_selected_pit = pit
 			self.bot_selected_direction = direction
 			self.bot_select_timer = 0.0
-			self.message = f"Bot selected pit {pit}."
+			self.message = f"Bot đã chọn ô {pit}."
 
 	def _draw_gradient(self, surface: pygame.Surface) -> None:
 		for y in range(settings.WINDOW_HEIGHT):
@@ -497,37 +515,43 @@ class GameScene(BaseScene):
 		pygame.draw.rect(surface, (18, 18, 18), shadow, border_radius=12)
 		pygame.draw.rect(surface, back_bg, self.btn_back, border_radius=12)
 		pygame.draw.rect(surface, settings.WHITE, self.btn_back, 2, border_radius=12)
-		back_text = self.small_font.render("Back", True, settings.WHITE)
+		back_text = self.small_font.render("Quay lại", True, settings.WHITE)
 		surface.blit(back_text, back_text.get_rect(center=self.btn_back.center))
 
 	def _draw_hud(self, surface: pygame.Surface) -> None:
-		# Top information panel to avoid text/background clash
-		top_panel = pygame.Surface((790, 116), pygame.SRCALPHA)
-		top_panel.fill((20, 18, 16, 156))
-		surface.blit(top_panel, (20, 16))
-		pygame.draw.rect(surface, (248, 236, 208), pygame.Rect(20, 16, 790, 116), 1, border_radius=10)
-
-		title_surf = self.title_font.render("O AN QUAN", True, (255, 244, 224))
-		surface.blit(title_surf, (36, 22))
-
 		names = self.engine.get_player_names()
 		capt = self.engine.captured_by_player
 		borrow = self.engine.borrowed_by_player
-		active_name = self.engine.get_active_player().name
+		is_bot_game = isinstance(self.engine.players[1], BotPlayer)
+		right_avatar_name = self.bot_avatar_name if is_bot_game else "player_2"
+		right_avatar_radius = 48 if is_bot_game else 42
+		right_avatar_border = self.bot_border_color if is_bot_game else (110, 73, 45)
 
-		player_line = self.body_font.render(
-			f"P1: {names[0]}  |  P2: {names[1]}  |  Turn: {active_name}",
-			True,
-			(252, 244, 228),
-		)
-		surface.blit(player_line, (36, 74))
+		panel_rect = pygame.Rect(120, 18, 1040, 160)
+		panel = pygame.Surface(panel_rect.size, pygame.SRCALPHA)
+		panel.fill((74, 51, 30, 176))
+		surface.blit(panel, panel_rect.topleft)
+		pygame.draw.rect(surface, (246, 236, 210), panel_rect, 2, border_radius=18)
 
-		score_line = self.small_font.render(
-			f"Captured: {capt[0]} - {capt[1]}    Borrowed: {borrow[0]} - {borrow[1]}",
+		score_text = self.head_font.render(f"{capt[0]} - {capt[1]}", True, settings.WHITE)
+		borrow_text = self.small_font.render(
+			f"Mượn: {borrow[0]} - {borrow[1]}",
 			True,
-			(245, 231, 205),
+			settings.TEXT_MUTED,
 		)
-		surface.blit(score_line, (36, 102))
+
+		surface.blit(score_text, score_text.get_rect(center=(panel_rect.centerx, panel_rect.centery - 10)))
+		surface.blit(borrow_text, borrow_text.get_rect(center=(panel_rect.centerx, panel_rect.centery + 28)))
+
+		left_avatar_center = (panel_rect.centerx - 220, panel_rect.centery - 4)
+		right_avatar_center = (panel_rect.centerx + 220, panel_rect.centery - 4)
+		self._draw_avatar(surface, "player_1", left_avatar_center, radius=42, border_color=(110, 73, 45))
+		self._draw_avatar(surface, right_avatar_name, right_avatar_center, radius=right_avatar_radius, border_color=right_avatar_border)
+
+		left_name = self.name_font.render(names[0], True, settings.WHITE)
+		right_name = self.name_font.render(names[1], True, settings.WHITE)
+		surface.blit(left_name, left_name.get_rect(midtop=(left_avatar_center[0], left_avatar_center[1] + 42)))
+		surface.blit(right_name, right_name.get_rect(midtop=(right_avatar_center[0], right_avatar_center[1] + 42)))
 
 		# Bottom status panel kept clear from buttons
 		bottom_panel = pygame.Surface((740, 72), pygame.SRCALPHA)
@@ -535,32 +559,15 @@ class GameScene(BaseScene):
 		surface.blit(bottom_panel, (164, 632))
 		pygame.draw.rect(surface, (248, 236, 208), pygame.Rect(164, 632, 740, 72), 1, border_radius=10)
 
-		message = self.small_font.render(self.message[:92], True, (255, 246, 230))
+		message = self.small_font.render(self.message[:92], True, settings.WHITE)
 		surface.blit(message, (180, 648))
 
 		hint = self.small_font.render(
-			"Esc: bo chon o | Back: ve menu | Mui ten: rai theo chieu",
+			"Esc: bỏ chọn ô | Quay lại: về menu | Mũi tên: rải theo chiều",
 			True,
-			(235, 222, 194),
+			settings.TEXT_MUTED,
 		)
 		surface.blit(hint, (180, 674))
-
-		# avatar mapping: prefer provided player images
-		avatar_0_name = "player_1"
-		if isinstance(self.engine.players[1], BotPlayer):
-			avatar_1_name = "bot1"
-		else:
-			avatar_1_name = "player_2"
-		self._draw_avatar(surface, avatar_0_name, (1080, 58))
-		self._draw_avatar(surface, avatar_1_name, (1170, 58))
-
-		name_0 = self.small_font.render(names[0], True, (255, 246, 230))
-		name_1 = self.small_font.render(names[1], True, (255, 246, 230))
-		surface.blit(name_0, name_0.get_rect(center=(1080, 102)))
-		surface.blit(name_1, name_1.get_rect(center=(1170, 102)))
-
-		self._draw_rps_icon(surface, self.last_rps[0], (1080, 132), size=36)
-		self._draw_rps_icon(surface, self.last_rps[1], (1170, 132), size=36)
 
 	def _draw_final_overlay(self, surface: pygame.Surface) -> None:
 		if self.final_result is None:
@@ -570,24 +577,24 @@ class GameScene(BaseScene):
 		overlay.fill((0, 0, 0, 130))
 		surface.blit(overlay, (0, 0))
 
-		panel = pygame.Rect(330, 210, 620, 300)
+		panel = pygame.Rect(330, 210, 620, 330)
 		pygame.draw.rect(surface, (255, 248, 230), panel, border_radius=20)
 		pygame.draw.rect(surface, settings.BOARD_BORDER, panel, 3, border_radius=20)
 
 		scores = self.final_result.scores
 		names = self.final_result.names
-		result_title = self.head_font.render("Final Result", True, settings.TEXT_PRIMARY)
+		result_title = self.head_font.render("Final Result", True, (0, 0, 0))
 		surface.blit(result_title, (panel.x + 230, panel.y + 24))
 
 		line_1 = self.body_font.render(
 			f"{names[0]}: {scores[0]} points",
 			True,
-			settings.TEXT_PRIMARY,
+			(0, 0, 0),
 		)
 		line_2 = self.body_font.render(
 			f"{names[1]}: {scores[1]} points",
 			True,
-			settings.TEXT_PRIMARY,
+			(0, 0, 0),
 		)
 		surface.blit(line_1, (panel.x + 120, panel.y + 110))
 		surface.blit(line_2, (panel.x + 120, panel.y + 150))
@@ -599,8 +606,8 @@ class GameScene(BaseScene):
 		else:
 			winner_text = "Draw"
 
-		winner = self.head_font.render(winner_text, True, (180, 65, 32))
-		surface.blit(winner, (panel.x + 190, panel.y + 215))
+		winner = self.head_font.render(winner_text, True, (220, 70, 40))
+		surface.blit(winner, winner.get_rect(center=(panel.centerx, panel.y + 240)))
 
 		mouse_pos = pygame.mouse.get_pos()
 		btn_bg = (154, 98, 63) if self.final_back_button.collidepoint(mouse_pos) else (140, 90, 60)
@@ -608,7 +615,7 @@ class GameScene(BaseScene):
 		pygame.draw.rect(surface, (18, 18, 18), btn_shadow, border_radius=10)
 		pygame.draw.rect(surface, btn_bg, self.final_back_button, border_radius=10)
 		pygame.draw.rect(surface, settings.WHITE, self.final_back_button, 2, border_radius=10)
-		btn_text = self.small_font.render("Back to Menu", True, settings.WHITE)
+		btn_text = self.small_font.render("Về menu", True, settings.WHITE)
 		surface.blit(btn_text, btn_text.get_rect(center=self.final_back_button.center))
 
 	def draw(self, surface: pygame.Surface) -> None:
@@ -630,10 +637,10 @@ class GameScene(BaseScene):
 			panel = pygame.Rect(360, 300, 560, 200)
 			pygame.draw.rect(surface, (255, 248, 230), panel, border_radius=12)
 			pygame.draw.rect(surface, settings.BOARD_BORDER, panel, 3, border_radius=12)
-			q = self.head_font.render("Return to menu?", True, settings.TEXT_PRIMARY)
-			surface.blit(q, (panel.x + 160, panel.y + 28))
-			desc = self.body_font.render("Are you sure you want to quit the current game?", True, settings.TEXT_PRIMARY)
-			surface.blit(desc, (panel.x + 40, panel.y + 84))
+			q = self.head_font.render("Về menu?", True, (0, 0, 0))
+			surface.blit(q, q.get_rect(center=(panel.centerx, panel.y + 28)))
+			desc = self.body_font.render("Bạn có chắc muốn thoát ván hiện tại không?", True, (0, 0, 0))
+			surface.blit(desc, desc.get_rect(center=(panel.centerx, panel.y + 84)))
 			# yes/no buttons
 			pygame.draw.rect(surface, (88, 140, 72), self.confirm_yes, border_radius=8)
 			pygame.draw.rect(surface, (180, 60, 60), self.confirm_no, border_radius=8)
@@ -642,4 +649,6 @@ class GameScene(BaseScene):
 			surface.blit(y, y.get_rect(center=self.confirm_yes.center))
 			surface.blit(n, n.get_rect(center=self.confirm_no.center))
 
-		self._draw_final_overlay(surface)
+		# Only show victory when animation completes
+		if not self.anim_active:
+			self._draw_final_overlay(surface)

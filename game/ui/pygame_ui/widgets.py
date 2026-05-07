@@ -33,18 +33,18 @@ class Button:
 
 		# shadow
 		shadow_rect = self.rect.move(4, 4)
-		pygame.draw.rect(surface, (20, 20, 20), shadow_rect, border_radius=12)
+		pygame.draw.rect(surface, (58, 38, 22), shadow_rect, border_radius=14)
 
 		# main face
-		pygame.draw.rect(surface, bg, self.rect, border_radius=12)
+		pygame.draw.rect(surface, bg, self.rect, border_radius=14)
 
 		# top highlight (lighter strip)
-		highlight = (min(255, bg[0] + 20), min(255, bg[1] + 20), min(255, bg[2] + 20))
-		high_rect = pygame.Rect(self.rect.x + 3, self.rect.y + 3, self.rect.width - 6, max(6, self.rect.height // 6))
-		pygame.draw.rect(surface, highlight, high_rect, border_radius=8)
+		highlight = (min(255, bg[0] + 26), min(255, bg[1] + 24), min(255, bg[2] + 18))
+		high_rect = pygame.Rect(self.rect.x + 4, self.rect.y + 4, self.rect.width - 8, max(7, self.rect.height // 6))
+		pygame.draw.rect(surface, highlight, high_rect, border_radius=10)
 
 		if self.border_color is not None:
-			pygame.draw.rect(surface, self.border_color, self.rect, 2, border_radius=12)
+			pygame.draw.rect(surface, self.border_color, self.rect, 2, border_radius=14)
 		text = self.font.render(self.label, True, self.text_color)
 		surface.blit(text, text.get_rect(center=self.rect.center))
 

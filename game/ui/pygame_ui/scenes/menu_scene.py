@@ -2,12 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Tuple
-
 import pygame
 
 from config import PLAYER_NAMES
-from game.engine import GameEngine
 from game.ui.pygame_ui.assets import AssetManager
 from game.ui.pygame_ui.scenes.base_scene import BaseScene
 from game.ui.pygame_ui.scenes.rps_scene import RpsScene
@@ -20,8 +17,8 @@ class MenuScene(BaseScene):
 		self.app = app
 		self.assets = assets
 
-		self.title_font = pygame.font.SysFont("georgia", 56, bold=True)
-		self.head_font = pygame.font.SysFont("cambria", 28, bold=True)
+		self.title_font = pygame.font.SysFont("tahoma", 56, bold=True)
+		self.head_font = pygame.font.SysFont("tahoma", 28, bold=True)
 		self.body_font = pygame.font.SysFont("segoeui", 22)
 		self.small_font = pygame.font.SysFont("segoeui", 18)
 
@@ -51,15 +48,15 @@ class MenuScene(BaseScene):
 			pygame.Rect(440, 440, 400, 60),
 			"Thoát",
 			self.head_font,
-			(160, 70, 60),
-			(190, 84, 74),
+			(144, 83, 56),
+			(170, 103, 69),
 			settings.WHITE,
 			settings.WHITE,
 		)
 
 		self.btn_back = Button(
 			pygame.Rect(360, 560, 220, 48),
-			"Back",
+			"Quay lại",
 			self.body_font,
 			settings.BUTTON_BG,
 			settings.BUTTON_BG_HOVER,
@@ -68,7 +65,7 @@ class MenuScene(BaseScene):
 		)
 		self.btn_start = Button(
 			pygame.Rect(700, 560, 220, 48),
-			"Start",
+			"Bắt đầu",
 			self.body_font,
 			settings.BUTTON_BG,
 			settings.BUTTON_BG_HOVER,
@@ -79,19 +76,19 @@ class MenuScene(BaseScene):
 		self.input_p1 = TextInput(
 			pygame.Rect(420, 330, 440, 46),
 			self.body_font,
-			"Player 1",
+			"Người chơi 1",
 		)
 		self.input_p2 = TextInput(
 			pygame.Rect(420, 400, 440, 46),
 			self.body_font,
-			"Player 2",
+			"Đối thủ",
 		)
 
 		self._apply_default_names()
 
 	def _apply_default_names(self) -> None:
 		self.input_p1.set_text(PLAYER_NAMES[0])
-		self.input_p2.set_text(PLAYER_NAMES[1])
+		self.input_p2.set_text("Trẻ con")
 
 	def _draw_gradient(self, surface: pygame.Surface) -> None:
 		for y in range(settings.WINDOW_HEIGHT):
@@ -115,11 +112,11 @@ class MenuScene(BaseScene):
 	def _draw_menu(self, surface: pygame.Surface) -> None:
 		# Bright centered title with soft glow so it does not sink into the background.
 		title_center = (settings.WINDOW_WIDTH // 2, 180)
-		glow = self.title_font.render("O ĂN QUAN", True, (55, 40, 20))
+		glow = self.title_font.render("O ĂN QUAN", True, (26, 58, 32))
 		for dx, dy in [(-3, 0), (3, 0), (0, -3), (0, 3), (-2, -2), (2, 2)]:
 			surface.blit(glow, glow.get_rect(center=(title_center[0] + dx, title_center[1] + dy)))
 
-		title = self.title_font.render("O ĂN QUAN", True, (255, 248, 232))
+		title = self.title_font.render("O ĂN QUAN", True, (249, 250, 243))
 		surface.blit(title, title.get_rect(center=title_center))
 
 		self.btn_pvp.draw(surface)
@@ -127,10 +124,10 @@ class MenuScene(BaseScene):
 		self.btn_quit.draw(surface)
 
 	def _draw_name_entry(self, surface: pygame.Surface) -> None:
-		title = "Player Names" if self.mode == "pvp" else "Player and Bot"
+		title = "Tên người chơi" if self.mode == "pvp" else "Chọn đối thủ"
 		self._draw_title(surface, title)
 
-		label_1 = self.small_font.render("Player 1", True, settings.TEXT_MUTED)
+		label_1 = self.small_font.render("Người chơi 1", True, settings.TEXT_MUTED)
 		surface.blit(label_1, (420, 305))
 		self.input_p1.draw(
 			surface,
@@ -142,7 +139,7 @@ class MenuScene(BaseScene):
 		)
 
 		label_2 = self.small_font.render(
-			"Player 2" if self.mode == "pvp" else "Bot",
+			"Người chơi 2" if self.mode == "pvp" else "Đối thủ",
 			True,
 			settings.TEXT_MUTED,
 		)
@@ -164,7 +161,7 @@ class MenuScene(BaseScene):
 		if mode == "pvp":
 			self.input_p2.set_text(PLAYER_NAMES[1])
 		else:
-			self.input_p2.set_text("Bot")
+			self.input_p2.set_text("Trẻ con")
 
 	def _start_game(self) -> None:
 		p1_name = self.input_p1.text.strip() or PLAYER_NAMES[0]
