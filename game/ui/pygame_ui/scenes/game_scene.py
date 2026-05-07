@@ -76,6 +76,11 @@ class GameScene(BaseScene):
 		self.bot_select_timer = 0.0
 		self.bot_select_delay = 0.35
 
+		# deferred capture display: keep snapshot before move and pending capture
+		self.capture_before_move = self.engine.captured_by_player.copy()
+		self.pending_capture_player: Optional[int] = None
+		self.pending_captured_amount = 0
+
 		# confirm-exit modal
 		self.confirm_exit = False
 		self.confirm_yes = pygame.Rect(520, 420, 120, 48)
@@ -256,7 +261,13 @@ class GameScene(BaseScene):
 		self.anim_active = True
 
 		# perform logical move immediately so engine state updates
+		# snapshot captured counts so HUD can defer showing the change until
+		# the animation completes
+		self.capture_before_move = self.engine.captured_by_player.copy()
 		move = self.engine.execute_move(pit, direction)
+		# record pending capture to display as "+N" during animation
+		self.pending_capture_player = move.player_id
+		self.pending_captured_amount = move.captured
 		direction_label = "xuôi chiều" if direction == CLOCKWISE else "ngược chiều"
 		self.message = (
 			f"{move.player_name} đi ô {move.pit} theo hướng {direction_label}. "
@@ -349,6 +360,9 @@ class GameScene(BaseScene):
 				self.anim_timer = 0.0
 			if self.anim_frame_idx >= len(self.anim_frames):
 				self.anim_active = False
+				# animation finished: clear pending capture so HUD shows engine state
+				self.pending_capture_player = None
+				self.pending_captured_amount = 0
 			return
 
 		# bot selection display (show red circle on selected pit for 0.35s before moving)
@@ -545,7 +559,12 @@ class GameScene(BaseScene):
 
 	def _draw_hud(self, surface: pygame.Surface) -> None:
 		names = self.engine.get_player_names()
-		capt = self.engine.captured_by_player
+		# If an animation is active and we recorded a pending capture, show the
+		# snapshot taken before the move so the scoreboard doesn't jump mid-move.
+		if self.anim_active and self.pending_capture_player is not None:
+			capt = self.capture_before_move
+		else:
+			capt = self.engine.captured_by_player
 		borrow = self.engine.borrowed_by_player
 		is_bot_game = isinstance(self.engine.players[1], BotPlayer)
 		right_avatar_name = self.bot_avatar_name if is_bot_game else "player_2"
@@ -558,6 +577,10 @@ class GameScene(BaseScene):
 		surface.blit(panel, panel_rect.topleft)
 		pygame.draw.rect(surface, (246, 236, 210), panel_rect, 2, border_radius=18)
 
+		# Avatar centers used for name/plus positioning
+		left_avatar_center = (panel_rect.centerx - 220, panel_rect.centery - 4)
+		right_avatar_center = (panel_rect.centerx + 220, panel_rect.centery - 4)
+
 		score_text = self.head_font.render(f"{capt[0]} - {capt[1]}", True, settings.WHITE)
 		borrow_text = self.small_font.render(
 			f"Mượn: {borrow[0]} - {borrow[1]}",
@@ -566,10 +589,15 @@ class GameScene(BaseScene):
 		)
 
 		surface.blit(score_text, score_text.get_rect(center=(panel_rect.centerx, panel_rect.centery - 10)))
+		# If there's a pending capture during animation, show a small "+N" next to the player's name
+		if self.anim_active and self.pending_capture_player is not None and self.pending_captured_amount > 0:
+			plus = self.small_font.render(f"+{self.pending_captured_amount}", True, settings.WHITE)
+			if self.pending_capture_player == 0:
+				surface.blit(plus, plus.get_rect(midtop=(left_avatar_center[0], left_avatar_center[1] + 66)))
+			else:
+				surface.blit(plus, plus.get_rect(midtop=(right_avatar_center[0], right_avatar_center[1] + 66)))
 		surface.blit(borrow_text, borrow_text.get_rect(center=(panel_rect.centerx, panel_rect.centery + 28)))
 
-		left_avatar_center = (panel_rect.centerx - 220, panel_rect.centery - 4)
-		right_avatar_center = (panel_rect.centerx + 220, panel_rect.centery - 4)
 		self._draw_avatar(surface, "player_1", left_avatar_center, radius=42, border_color=(110, 73, 45))
 		self._draw_avatar(surface, right_avatar_name, right_avatar_center, radius=right_avatar_radius, border_color=right_avatar_border)
 
