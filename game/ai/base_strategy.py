@@ -25,7 +25,7 @@ def evaluate(
     V_p = sum(1 for i in Board.side_indices(player_id) if int(board.seeds[i]) > 0)
     V_opp = sum(1 for i in Board.side_indices(1 - player_id) if int(board.seeds[i]) > 0)
 
-    return 0.7 * (M_p - M_opp) + 0.1 * (S_p - S_opp) + 0.2 * (V_p - V_opp)
+    return 0.7 * (M_p - M_opp) + 0.2 * (S_p - S_opp) + 0.1 * (V_p - V_opp)
 
 def minimax(
     board: Board,
@@ -155,7 +155,7 @@ class MinimaxStrategy(Strategy):
             player_id,
             base_captured,
             base_borrowed,
-            3,  # depth
+            5,  # depth
             float("-inf"),
             float("inf"),
         )
