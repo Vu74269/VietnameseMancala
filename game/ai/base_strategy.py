@@ -22,10 +22,7 @@ def evaluate(
     S_p = sum(int(board.seeds[i]) for i in Board.side_indices(player_id))
     S_opp = sum(int(board.seeds[i]) for i in Board.side_indices(1 - player_id))
 
-    V_p = sum(1 for i in Board.side_indices(player_id) if int(board.seeds[i]) > 0)
-    V_opp = sum(1 for i in Board.side_indices(1 - player_id) if int(board.seeds[i]) > 0)
-
-    return 0.7 * (M_p - M_opp) + 0.2 * (S_p - S_opp) + 0.1 * (V_p - V_opp)
+    return 0.7 * (M_p - M_opp) + 0.3 * (S_p - S_opp)
 
 def minimax(
     board: Board,

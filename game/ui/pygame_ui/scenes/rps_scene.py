@@ -15,6 +15,12 @@ from game.ui.pygame_ui import settings
 
 
 class RpsScene(BaseScene):
+	BOT_LABELS = {
+		"random": "Trẻ con",
+		"greedy": "Học trò",
+		"minimax": "Trạng nguyên",
+	}
+
 	def __init__(
 		self,
 		app: "PygameApp",
@@ -28,12 +34,19 @@ class RpsScene(BaseScene):
 		self.assets = assets
 		self.mode = mode
 		self.p1_name = p1_name or PLAYER_NAMES[0]
-		self.p2_name = p2_name or ("Bot" if mode == "pvb" else PLAYER_NAMES[1])
+		# For PvP: always use PLAYER_NAMES[1] as default, never use BOT_LABELS
+		if mode == "pvp":
+			self.p2_name = p2_name or PLAYER_NAMES[1]
+		else:
+			self.p2_name = p2_name or ("Bot" if mode == "pvb" else PLAYER_NAMES[1])
 		self.bot_type = bot_type if bot_type in ("random", "greedy", "minimax") else "random"
+		self.bot_label = self.BOT_LABELS[self.bot_type]
 
-		self.title_font = pygame.font.SysFont("georgia", 48, bold=True)
+		self.title_font = pygame.font.SysFont("tahoma", 48, bold=True)
 		self.body_font = pygame.font.SysFont("segoeui", 22)
 		self.small_font = pygame.font.SysFont("segoeui", 18)
+		self.title_outline_color = (58, 126, 72)
+		self.btn_back = pygame.Rect(28, settings.WINDOW_HEIGHT - 74, 120, 46)
 
 		# Use image icons as clickable buttons (transparent PNGs)
 		icon_size = (120, 120)
@@ -62,8 +75,15 @@ class RpsScene(BaseScene):
 			if self.winner != -1:
 				break
 		self.message = (
-			f"Random RPS: {self.p1_name}={self.pick_0} vs {self.p2_name}={self.pick_1}"
+			f"Oẳn tù tì: {self.p1_name}={self.pick_0} vs {self.p2_name}={self.pick_1}"
 		)
+
+	def _draw_outlined_title(self, surface: pygame.Surface, text: str, center: Tuple[int, int]) -> None:
+		for dx, dy in [(-2, 0), (2, 0), (0, -2), (0, 2), (-2, -2), (2, 2), (-2, 2), (2, -2)]:
+			outline = self.title_font.render(text, True, self.title_outline_color)
+			surface.blit(outline, outline.get_rect(center=(center[0] + dx, center[1] + dy)))
+		title = self.title_font.render(text, True, settings.WHITE)
+		surface.blit(title, title.get_rect(center=center))
 
 	def _draw_background(self, surface: pygame.Surface) -> None:
 		bg_img = self.assets.load_image("background", size=(settings.WINDOW_WIDTH, settings.WINDOW_HEIGHT))
@@ -102,10 +122,15 @@ class RpsScene(BaseScene):
 
 		engine.start(first_player=self.winner)
 		self.app.set_scene(
-			GameScene(self.app, engine, self.assets, (self.pick_0, self.pick_1))
+			GameScene(self.app, engine, self.assets, (self.pick_0, self.pick_1), self.bot_type)
 		)
 
 	def handle_event(self, event: pygame.event.Event) -> None:
+		if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and self.btn_back.collidepoint(event.pos):
+			from game.ui.pygame_ui.scenes.bot_select_scene import BotSelectScene
+			self.app.set_scene(BotSelectScene(self.app, self.assets, self.mode, self.p1_name, self.p2_name))
+			return
+
 		if self.mode == "pvp":
 			return
 
@@ -162,13 +187,11 @@ class RpsScene(BaseScene):
 	def draw(self, surface: pygame.Surface) -> None:
 		self._draw_background(surface)
 
-		title = self.title_font.render("Rock / Paper / Scissors", True, settings.TEXT_PRIMARY)
-		surface.blit(title, title.get_rect(center=(settings.WINDOW_WIDTH // 2, 150)))
-
-		name_line = self.small_font.render(
-			f"{self.p1_name} vs {self.p2_name}", True, settings.TEXT_MUTED
-		)
-		surface.blit(name_line, name_line.get_rect(center=(settings.WINDOW_WIDTH // 2, 190)))
+		self._draw_outlined_title(surface, "Oẳn tù xì", (settings.WINDOW_WIDTH // 2, 150))
+		pygame.draw.rect(surface, (58, 126, 72), self.btn_back, border_radius=12)
+		pygame.draw.rect(surface, settings.WHITE, self.btn_back, 2, border_radius=12)
+		back_text = self.small_font.render("Quay lại", True, settings.WHITE)
+		surface.blit(back_text, back_text.get_rect(center=self.btn_back.center))
 
 		if self.mode == "pvb":
 			mouse_pos = pygame.mouse.get_pos()
@@ -185,23 +208,15 @@ class RpsScene(BaseScene):
 			else:
 				# fallback textual layout
 				x = 340
-				for label in ("Rock", "Paper", "Scissors"):
+				for label in ("Búa", "Bao", "Kéo"):
 					rect = pygame.Rect(x, 420, 170, 52)
 					pygame.draw.rect(surface, settings.BUTTON_BG, rect, border_radius=12)
 					pygame.draw.rect(surface, settings.WHITE, rect, 2, border_radius=12)
 					text = self.body_font.render(label, True, settings.BUTTON_TEXT)
 					surface.blit(text, text.get_rect(center=rect.center))
 					x += 215
-			info = self.small_font.render("Choose your move", True, settings.TEXT_MUTED)
-			surface.blit(info, info.get_rect(center=(settings.WINDOW_WIDTH // 2, 380)))
-		else:
-			info = self.small_font.render("Random draw...", True, settings.TEXT_MUTED)
-			surface.blit(info, info.get_rect(center=(settings.WINDOW_WIDTH // 2, 380)))
 
 		if self.pick_0 and self.pick_1:
 			self._draw_rps_icon(surface, self.pick_0, (520, 290))
 			self._draw_rps_icon(surface, self.pick_1, (760, 290))
 
-		if self.message:
-			msg = self.small_font.render(self.message, True, settings.TEXT_PRIMARY)
-			surface.blit(msg, msg.get_rect(center=(settings.WINDOW_WIDTH // 2, 520)))
