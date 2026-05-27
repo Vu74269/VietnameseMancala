@@ -1,287 +1,287 @@
-# O An Quan Game (Console + Pygame GUI)
+## O An Quan Game (Console + Pygame GUI)
 
-Project Python cho game O An Quan, tach ro phan board/rules/engine/player/ui de de mo rong AI va GUI.
+A Python project for the traditional Vietnamese game O An Quan (Vietnamese Mancala). The project separates `board`, `rules`, `engine`, `player`, and `ui` components to make it easier to extend with AI and a GUI.
 
-## 1. Cai dat
+## 1. Installation
 
-Yeu cau:
+Requirements:
 - Python 3.10+
 
-Tao virtual environment (khuyen nghi):
+Create a virtual environment (recommended):
 
 ```powershell
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+.\\.venv\\Scripts\\Activate.ps1
 ```
 
-Cai dependencies:
+Install dependencies:
 
 ```powershell
 pip install -r requirements.txt
 ```
 
-## 2. Chay game (Terminal)
+## 2. Run the game (terminal)
 
 ```powershell
 python main.py
 ```
 
-## 3. Cai dat cho VS Code
+## 3. VS Code setup
 
-Ban khong bat buoc cai extension nao de chay GUI.
+No special extensions are required to run the GUI, but the following are recommended.
 
-Can thiet:
+Required:
 - Python 3.10+
-- Da cai package `pygame` trong virtual env
+- `pygame` installed in the virtual environment
 
-Khuyen nghi trong VS Code:
+Recommended VS Code extensions:
 - Python (ms-python.python)
 - Pylance (ms-python.vscode-pylance)
 
-Neu gap loi khi mo cua so pygame:
-- Chay tu terminal da active `.venv`.
-- Dung python 64-bit.
-- Thu cap nhat driver GPU neu may qua cu.
+If you encounter issues opening a pygame window:
+- Run from a terminal with the `.venv` activated.
+- Use 64-bit Python.
+- Try updating GPU drivers on older machines.
 
-## 4. Tai nguyen anh PNG (optional)
+## 4. PNG image assets (optional)
 
-Du an ho tro fallback: neu khong co anh thi van ve bang shape.
+The project supports a fallback: if image files are missing, shapes are drawn instead.
 
-Dat file vao thu muc: `assets/images/`
+Place image files in: `assets/images/`
 
-## 5. Cau truc du lieu
+## 5. Data structure
 
-### 5.1 Ban co va chi so o
+### 5.1 Board and pit indices
 
-- Tong 12 o, danh so vong tron: `0..11`
-- O quan trai: `0`
-- O quan phai: `6`
-- 5 o nguoi choi 0: `[1, 2, 3, 4, 5]`
-- 5 o nguoi choi 1: `[11, 10, 9, 8, 7]`
+- Total 12 pits, indices wrap: `0..11`
+- Left big pit: `0`
+- Right big pit: `6`
+- Player 0's 5 pits: `[1, 2, 3, 4, 5]`
+- Player 1's 5 pits: `[11, 10, 9, 8, 7]`
 
-### 5.2 Du lieu trong `Board`
+### 5.2 Data in `Board`
 
 - `seeds: List[int]`
-	- Mang 12 phan tu, moi phan tu la so quan dan trong tung o.
+  - An array of 12 elements; each element is the number of small stones in that pit.
 - `quan_alive: List[bool]`
-	- `quan_alive[0]`: quan o o 0 con song hay da bi an.
-	- `quan_alive[1]`: quan o o 6 con song hay da bi an.
+  - `quan_alive[0]`: whether the big piece at pit 0 is still present.
+  - `quan_alive[1]`: whether the big piece at pit 6 is still present.
 
-### 5.3 Du lieu trang thai trong `GameEngine`
+### 5.3 Game state in `GameEngine`
 
 - `self.board: Board`
 - `self.captured_by_player: List[int]`
-	- Tong so quan da an duoc (chua tru vay).
+  - Total small stones captured by each player (debt not yet subtracted).
 - `self.borrowed_by_player: List[int]`
-	- So quan da vay khi bi "het quan ben minh".
+  - Amount borrowed when a side runs out of stones.
 - `self.players: List[BasePlayer]`
-	- Gom `HumanPlayer`/`BotPlayer` tuy mode.
+  - Contains `HumanPlayer`/`BotPlayer` depending on mode.
 - `self.current_player: int`
-	- `0` hoac `1`.
+  - `0` or `1`.
 
-### 5.4 Du lieu truyen qua AI/player
+### 5.4 Data passed to AI/player
 
-- `board_state: Dict[str, object]` (tu `Board.get_state()`)
-	- `seeds`, `quan_alive`, `player_0_side`, `player_1_side`, `quan_indices`.
+- `board_state: Dict[str, object]` (from `Board.get_state()`)
+  - Contains `seeds`, `quan_alive`, `player_0_side`, `player_1_side`, `quan_indices`.
 - `valid_moves: List[int]`
-	- Danh sach cac o hop le co the chon o luot hien tai.
+  - List of pit indices that are valid choices for the current turn.
 
-## 6. Chi tiet tat ca ham va method
+## 6. Detailed functions and methods
 
 ### 6.1 `main.py`
 
 - `main() -> None`
-	- In tieu de game.
-	- Chon backend UI (`console` hoac `pygame`).
-	- Chon mode (`pvp`/`pvb`) roi goi runner tuong ung.
+  - Prints the game title.
+  - Chooses the backend UI (`console` or `pygame`).
+  - Chooses mode (`pvp`/`pvb`) and runs the appropriate runner.
 
 ### 6.2 `game/board.py` - `class Board`
 
 - `Board.create_initial() -> Board`
-	- Khoi tao ban co mac dinh: moi o dan 5 quan, o quan 0 quan, 2 quan lon con song.
+  - Initialize the default board: each small pit has 5 stones, big pits have 0, both big pieces present.
 - `copy() -> Board`
-	- Tra ve ban sao de AI/co che mo phong dung ma khong sua board goc.
+  - Return a copy for AI/simulation without modifying the original board.
 - `get_state() -> Dict[str, object]`
-	- Dong goi trang thai hien tai thanh dict.
+  - Pack current state into a dict.
 - `is_quan_pit(index: int) -> bool`
-	- Kiem tra mot index co phai o quan hay khong.
+  - Check whether an index is a big piece pit.
 - `next_index(index: int, direction: int) -> int`
-	- Tinh o tiep theo theo huong `cw/ccw`.
-	- Raise `ValueError` neu huong khong hop le.
+  - Compute the next pit index according to `cw/ccw`.
+  - Raises `ValueError` if direction is invalid.
 - `side_indices(player_id: int) -> List[int]`
-	- Tra ve 5 o thuoc quyen player.
+  - Return the 5 pit indices belonging to the player.
 - `get_valid_moves(player_id: int) -> List[int]`
-	- Tra ve cac o ben player co quan de duoc chon.
+  - Return the pits on the player's side that contain seeds and are selectable.
 - `has_quan(index: int) -> bool`
-	- Kiem tra o quan (0/6) co con quan lon hay da bi an.
+  - Check if a big piece (pit 0 or 6) is still present.
 - `remove_quan(index: int) -> None`
-	- Danh dau quan lon o o quan da bi an.
+  - Mark a big piece pit as removed.
 - `pit_owner(index: int) -> Optional[int]`
-	- Xac dinh chu o (0/1), tra `None` neu la o quan.
+  - Determine the owner of a pit (0/1), return `None` for big piece pits.
 - `is_side_empty(player_id: int) -> bool`
-	- Kiem tra ca 5 o ben player co dang trong het khong.
+  - Check whether all 5 pits on the player's side are empty.
 - `clear_pit(index: int) -> int`
-	- Lay het quan trong o va dat o do ve 0.
-	- Tra ve so quan vua lay.
+  - Take all stones from a pit and set it to 0.
+  - Return the number of stones taken.
 
 ### 6.3 `game/rules.py`
 
 - `is_valid_move(board, player_id, pit_index) -> bool`
-	- Nuoc di hop le khi o duoc chon thuoc ben player va co quan.
+  - A move is valid when the chosen pit belongs to the player and has stones.
 - `_can_capture_target(board, target_idx) -> bool`
-	- Kiem tra o dich co du dieu kien de an.
-	- Neu la o quan thi phai >= 5 quan dan moi duoc an quan.
+  - Check whether the target pit meets capture conditions.
+  - If it's a big piece pit, it must have at least 5 small stones to be captured.
 - `_capture_target(board, target_idx) -> int`
-	- An sach quan o dich, neu co quan lon thi cong them gia tri quan (`QUAN_VALUE`).
+  - Capture all stones from the target; if a big piece is present add the `QUAN_VALUE`.
 - `_capture_chain(board, first_target_idx, direction) -> int`
-	- Xu ly chuoi an dang: `trong -> an duoc -> trong -> an duoc ...`.
+  - Handle chained captures: empty -> capture -> empty -> capture ...
 - `execute_turn(board, player_id, pit_index, direction) -> int`
-	- Ham quan trong nhat cho 1 luot:
-	- Boc quan o duoc chon.
-	- Rai theo huong.
-	- Xu ly TH1..TH6.
-	- Tra ve tong quan vua an trong luot.
+  - The main function for one turn:
+  - Pick up stones from the chosen pit.
+  - Sow them according to direction.
+  - Handle cases 1..6.
+  - Return the total stones captured this turn.
 - `ensure_side_has_seeds(board, player_id, captured_by_player, borrowed_by_player) -> int`
-	- Neu 5 o ben player trong het:
-	- Lay tu quan da an de rai lai 5 o (moi o 1 quan).
-	- Neu thieu thi ghi no vao `borrowed_by_player`.
-	- Tra ve so quan da vay.
+  - If all 5 pits on the player's side are empty:
+  - Refill each pit from the captured pile (1 stone per pit).
+  - If there aren't enough stones, record the debt in `borrowed_by_player`.
+  - Return number of stones borrowed.
 - `check_game_over(board) -> bool`
-	- Ket thuc khi ca 2 o quan deu khong con quan lon va khong con quan dan.
+  - Game ends when both big pits are gone and there are no small stones left.
 - `collect_remaining_side_seeds(board, captured_by_player) -> None`
-	- Cuoi game, moi ben thu het quan con lai o 5 o cua minh.
+  - At the end, each side collects all remaining small stones from its 5 pits.
 - `calculate_score(captured_by_player, borrowed_by_player) -> Dict[int, int]`
-	- Tinh diem cuoi co tru no vay va cong phan doi thu phai tra lai.
+  - Calculate final scores, subtract debts and apply any compensation.
 
 ### 6.4 `game/engine.py` - `class GameEngine`
 
 - `__init__(mode: str) -> None`
-	- Khoi tao board, diem, nguoi choi, luot hien tai (headless).
-	- `mode` chi nhan `pvp` hoac `pvb`.
-	- Co the truyen danh sach player tuy chinh.
+  - Initialize board, scores, players, and current turn (headless).
+  - `mode` accepts `pvp` or `pvb`.
+  - Custom player lists can be supplied.
 - `_create_default_players() -> List[BasePlayer]`
-	- Tao danh sach player theo mode:
-	- `pvp`: 2 nguoi.
-	- `pvb`: 1 nguoi + 1 bot.
+  - Create players based on mode:
+  - `pvp`: 2 humans.
+  - `pvb`: 1 human + 1 bot.
 - `start(first_player: int = 0) -> None`
-	- Dat nguoi di truoc.
+  - Set who starts first.
 - `prepare_turn() -> TurnContext`
-	- Xu ly refill/vay neu can va tra ve trang thai luot hien tai.
+  - Handle refills/borrowing if needed and return the current turn context.
 - `execute_move(pit, direction) -> MoveResult`
-	- Thuc thi nuoc di va cap nhat so quan an.
+  - Perform the move and update captured counts.
 - `end_turn() -> None`
-	- Chuyen luot cho nguoi choi con lai.
+  - Switch the turn to the other player.
 - `skip_turn() -> None`
-	- Bo luot an toan khi khong co nuoc hop le.
+  - Safely skip a turn when no valid move exists.
 - `finalize_game() -> FinalResult`
-	- Thu quan cuoi game va tinh diem chung cuoc.
+  - Collect remaining stones and compute final scores.
 - `_rps_winner(pick_0: str, pick_1: str) -> int`
-	- Tinh ket qua oẳn tù xì.
-	- Tra `0`/`1` neu co nguoi thang, `-1` neu hoa.
+  - Determine the Rock-Paper-Scissors winner.
+  - Return `0`/`1` for a player win, `-1` for a tie.
 
 ### 6.5 `game/players/base_player.py` - `class BasePlayer`
 
 - `__init__(player_id: int, name: str) -> None`
-	- Luu id va ten nguoi choi.
+  - Store player id and name.
 - `choose_move(board_state, valid_moves) -> Tuple[int, int]` (abstract)
-	- Interface bat buoc cho tat ca player.
-	- Tra ve `(pit_index, direction)`.
+  - Required interface for all players.
+  - Return `(pit_index, direction)`.
 
 ### 6.6 `game/players/human_player.py` - `class HumanPlayer`
 
 - `choose_move(board_state, valid_moves) -> Tuple[int, int]`
-	- Doc input tu terminal dang `<pit> <cw|ccw>`.
-	- Validate pit va huong.
-	- Lap lai neu sai dinh dang/khong hop le.
+  - Read input from terminal in the form `<pit> <cw|ccw>`.
+  - Validate pit and direction.
+  - Repeat until valid.
 
 ### 6.7 `game/players/bot_player.py` - `class BotPlayer`
 
 - `__init__(player_id, name, strategy=None) -> None`
-	- Nhan strategy tuy chon, neu khong co thi dung `RandomStrategy`.
+  - Accept an optional strategy; if missing use `RandomStrategy`.
 - `choose_move(board_state, valid_moves) -> Tuple[int, int]`
-	- Uy quyen cho `self.strategy.get_best_move(...)`.
+  - Delegate to `self.strategy.get_best_move(...)`.
 
 ### 6.8 `game/ai/base_strategy.py`
 
 - `class Strategy`
-	- Interface AI:
-	- `get_best_move(board_state, player_id, valid_moves) -> Tuple[int, int]`.
+  - AI interface:
+  - `get_best_move(board_state, player_id, valid_moves) -> Tuple[int, int]`.
 - `class RandomStrategy(Strategy)`
-	- AI don gian nhat de game chay duoc ngay.
+  - A simple AI to let the game run immediately.
 - `RandomStrategy.get_best_move(...) -> Tuple[int, int]`
-	- Chon ngau nhien 1 o hop le va 1 huong hop le.
+  - Choose a random valid pit and a legal direction.
 
 ### 6.9 `game/ui/console_ui.py` - `class ConsoleUI`
 
 - `choose_mode() -> str`
-	- Chon `pvp`/`pvb` tu menu 1/2.
+  - Pick `pvp`/`pvb` from menu 1/2.
 - `ask_player_name(default_name: str) -> str`
-	- Nhap ten nguoi choi, Enter de giu mac dinh.
+  - Enter the player's name, press Enter to keep the default.
 - `ask_rps(name: str) -> str`
-	- Nhap rock/paper/scissors.
+  - Enter rock/paper/scissors.
 - `show_rps_result(name_0, pick_0, name_1, pick_1) -> None`
-	- In ket qua oẳn tù xì.
+  - Print RPS result.
 - `render_board(board, current_player_name, captured_by_player, borrowed_by_player) -> None`
-	- Ve ban co dang text.
-	- In score tam thoi, thong tin vay, va huong di.
+  - Draw the board as text.
+  - Print temporary scores, debt info, and direction.
 - `show_resupply(name: str, borrowed: int) -> None`
-	- In thong bao khi refill tu quan da an hoac co vay.
+  - Notify when refilling from captured stones or when borrowing occurs.
 - `show_move_summary(name, pit, direction, captured) -> None`
-	- In tom tat nuoc di vua danh.
+  - Print a summary of the played move.
 - `show_final(scores, captured_by_player, borrowed_by_player, names) -> None`
-	- In ket qua cuoi va nguoi thang.
+  - Print final results and the winner.
 
 ### 6.10 `game/ui/pygame_ui/*`
 
 - `app.py`
-	- Quan ly vong lap pygame (event/update/draw).
+  - Manages the pygame loop (events/update/draw).
 - `scenes/game_scene.py`
-	- Render ban co, o, score HUD.
-	- Xu ly click chuot/chon huong/cap nhat turn.
+  - Render the board, pits, and score HUD.
+  - Handle mouse clicks, direction selection, and turn updates.
 - `assets.py`
-	- Tai sprite PNG tu `assets/images` (co fallback neu thieu file).
+  - Load PNG sprites from `assets/images` (with fallback if files are missing).
 
 ### 6.11 `utils/helpers.py`
 
 - `clear_screen() -> None`
-	- Ham xoa terminal.
-	- Hien dang tam tat (`pass`) de xem lich su turn.
+  - Clear the terminal.
+  - Currently a no-op (`pass`) to keep a record of previous turns.
 - `direction_label(direction: int) -> str`
-	- Chuyen huong so sang text `cw`/`ccw`.
+  - Convert direction integer to `cw`/`ccw` label.
 
 ### 6.12 `tests/test_rules.py` - `class RulesTestCase`
 
 - `test_initial_board_setup()`
-	- Test trang thai board ban dau.
+  - Test the initial board state.
 - `test_move_must_be_from_player_side()`
-	- Test validate o chon co thuoc ben minh khong.
+  - Test that chosen pit belongs to the player.
 - `test_cannot_capture_non_mature_quan()`
-	- Test khong duoc an quan non (< 5 quan).
+  - Test that a big piece cannot be captured unless it has >= 5 small stones.
 - `test_refill_and_borrow_when_side_empty()`
-	- Test logic refill + vay khi het quan ben minh.
+  - Test the refill and borrow logic when a side runs out.
 
-## 7. Luat da duoc map vao code
+## 7. Rules mapped to code
 
-- Tai nguyen ban dau:
-	- 12 o: 2 o quan + 10 o quan nho.
-	- 50 quan nho: moi o nho 5 quan.
-	- 2 quan lon (moi quan tri gia 10 diem), dat o 2 o quan.
-- Chon nguoi di truoc bang RPS (rock/paper/scissors).
-- Moi luot:
-	- Boc toan bo quan o 1 o ben minh.
-	- Rai tung quan theo `cw` hoac `ccw`.
-	- Xu ly TH1..TH6 trong `game/rules.py`.
-- Quan non:
-	- Chi duoc an quan khi o quan do co it nhat 5 quan nho.
-- Het quan ben minh:
-	- Tu dong rai moi o ben minh 1 quan.
-	- Neu khong du 5 quan tu so da an, se vay doi thu (ghi no, cuoi game phai tra).
-- Ket thuc:
-	- Hai o quan khong con quan nho va quan lon da bi an het.
-	- Quan con lai ben nao thuoc ve ben do.
-	- Tinh diem co tru no vay.
+- Initial setup:
+  - 12 pits: 2 big pits + 10 small pits.
+  - 50 small stones: each small pit starts with 5 stones.
+  - 2 big pieces (each worth 10 points), placed in the two big pits.
+- First player is chosen by RPS (rock/paper/scissors).
+- Each turn:
+  - Pick up all stones from one of your pits.
+  - Sow them one by one in `cw` or `ccw`.
+  - Handle cases 1..6 as implemented in `game/rules.py`.
+- Big piece capture:
+  - A big piece can only be captured if that pit has at least 5 small stones.
+- Running out of stones on your side:
+  - Automatically refill each of your 5 pits with 1 stone from captured stones.
+  - If there are fewer than 5 stones available, borrow from the opponent (record debt to be settled at game end).
+- Game end:
+  - Both big pits have been removed and there are no small stones left.
+  - Remaining stones belong to the side that owns them.
+  - Final scoring subtracts any borrowed stones.
 
-## 8. Mo rong AI
+## 8. AI extension
 
-Update thuat toan minmax + alpha beta
+Planned improvement: calculate a better evaluation function for a stronger AI.
 
