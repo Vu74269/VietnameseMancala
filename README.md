@@ -11,7 +11,7 @@ Create a virtual environment (recommended):
 
 ```powershell
 python -m venv .venv
-.\\.venv\\Scripts\\Activate.ps1
+.\.venv\Scripts\Activate.ps1
 ```
 
 Install dependencies:
@@ -260,13 +260,13 @@ Place image files in: `assets/images/`
 - `test_refill_and_borrow_when_side_empty()`
   - Test the refill and borrow logic when a side runs out.
 
-## 7. Rules mapped to code
+## 7. Rules
 
 - Initial setup:
   - 12 pits: 2 big pits + 10 small pits.
   - 50 small stones: each small pit starts with 5 stones.
   - 2 big pieces (each worth 10 points), placed in the two big pits.
-- First player is chosen by RPS (rock/paper/scissors).
+- First player is chosen by rock-paper-scissors.
 - Each turn:
   - Pick up all stones from one of your pits.
   - Sow them one by one in `cw` or `ccw`.
