@@ -152,7 +152,7 @@ class MinimaxStrategy(Strategy):
             player_id,
             base_captured,
             base_borrowed,
-            5,  # depth
+            7,  # depth
             float("-inf"),
             float("inf"),
         )
